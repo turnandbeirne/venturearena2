@@ -2,13 +2,16 @@
 // (legalActions, selectionActions, isLegal): the board never decides legality.
 // It receives the stripped view for its seat, so it cannot show a card that
 // seat is not allowed to know. Spectators (playerID null) get the public table.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   legalActions, selectionActions, exitOptions, exitValue, isBetweenRounds,
   CARD, BY_KEY, SETS, SET_IDS, TYPES, DYNAMICS, WORDMARK, MAKER_LINE, HOME_LINK,
   EXIT_NAMES, COMBO_NAMES, SURVIVAL_BONUS,
 } from './rules.js';
 import { useFit, useLogFeed, useToast } from '../../client/game/hooks.js';
+import { fitHand } from './hand-layout.js';
+import { artFor } from './art.js';
+import { createSounds, soundFor } from './sounds.js';
 import './board.css';
 
 /** A seat with no Hard Pass has no choice to make: answer for it after a beat so the table never waits on it. */
@@ -22,6 +25,14 @@ const NAME_GROUPS = [
 
 const colorOf = (c) => (c.type === 'founder' ? SETS[c.set].color : TYPES[c.type].color);
 const bandOf = (c) => (c.type === 'founder' ? SETS[c.set].name : BAND[c.type] || 'Action');
+/** The line in an illustrated card's header: the founder's set, or what kind of card it is. */
+const kindOf = (c) => (c.type === 'boom' ? TYPES.boom.label : bandOf(c));
+/** A card's colour, lightened so it reads on the navy card frame. */
+function tintOf(c) {
+  const hex = colorOf(c).replace('#', '');
+  const mix = (i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * 0.42 + 255 * 0.58);
+  return `rgb(${mix(0)}, ${mix(2)}, ${mix(4)})`;
+}
 const money = (v) => `$${v}M`;
 const ordinal = (n) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
@@ -49,24 +60,71 @@ function usePress(onTap, onLong) {
   };
 }
 
-/** A card face, drawn entirely in CSS: colour band + icon, art, name, rule line. */
+/**
+ * A card face. With an illustration (art.js) it is the owner's card frame,
+ * with the kind of card in its blank header and the name on a plate at the
+ * bottom; without one it is drawn entirely in CSS: colour band + icon,
+ * initials, name, rule line. The text is always drawn here, never baked into
+ * a picture, so it stays sharp at every size and can be edited.
+ */
 function CardFace({ card, selected = false, fresh = null, have = null, onTap, onLong, label, dim = false }) {
   const press = usePress(onTap, onLong);
-  const cls = `vb__card vb__card--${card.type}${selected ? ' vb__card--sel' : ''}${fresh ? ' vb__card--new' : ''}${dim ? ' vb__card--dim' : ''}`;
-  const body = (
+  const art = artFor(card);
+  const cls = `vb__card vb__card--${card.type}${art ? ' vb__card--art' : ''}${selected ? ' vb__card--sel' : ''}${fresh ? ' vb__card--new' : ''}${dim ? ' vb__card--dim' : ''}`;
+  const pips = card.type === 'founder' && have !== null
+    ? <span className="vb__card-pips" aria-label={`${have} of 5 in hand`}>{[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < have ? 'on' : ''} />)}</span>
+    : null;
+  const check = selected && <span className="vb__card-check" aria-hidden="true">{'✓'}</span>;
+  const body = art ? (
+    <>
+      <img className="vb__card-img" src={art.sm} alt="" draggable={false} decoding="async" />
+      <span className="vb__card-kind"><span aria-hidden="true">{card.icon}</span><span className="vb__card-kindtext">{kindOf(card)}</span></span>
+      <span className="vb__card-plate">
+        <span className="vb__card-pname">{card.name}</span>
+        {card.type === 'founder' ? pips : <span className="vb__card-prule">{card.short}</span>}
+      </span>
+      {check}
+    </>
+  ) : (
     <>
       <span className="vb__card-band"><span className="vb__card-bandicon" aria-hidden="true">{card.icon}</span><span className="vb__card-bandtext">{bandOf(card)}</span></span>
       <span className="vb__card-art" aria-hidden="true">{card.type === 'founder' ? initials(card.name) : card.icon}</span>
       <span className="vb__card-name">{card.name}</span>
-      {card.type === 'founder'
-        ? (have !== null && <span className="vb__card-pips" aria-label={`${have} of 5 in hand`}>{[0, 1, 2, 3, 4].map((i) => <i key={i} className={i < have ? 'on' : ''} />)}</span>)
-        : <span className="vb__card-rule">{card.short}</span>}
-      {selected && <span className="vb__card-check" aria-hidden="true">{'✓'}</span>}
+      {card.type === 'founder' ? pips : <span className="vb__card-rule">{card.short}</span>}
+      {check}
     </>
   );
-  const style = { '--c': colorOf(card) };
+  const style = { '--c': colorOf(card), '--t': tintOf(card) };
   if (!onTap && !onLong) return <span className={cls} style={style}>{body}</span>;
   return <button type="button" key={fresh || 'card'} className={cls} style={style} aria-pressed={selected} aria-label={label || card.name} {...press}>{body}</button>;
+}
+
+/** The small "?" in a card's description: the real founder, business move or startup event behind it. */
+function RealStory({ card }) {
+  return (
+    <a className="vb__q" href={card.link} target="_blank" rel="noopener noreferrer" title="The real-world story" aria-label={`The real-world story behind ${card.name} (opens in a new tab)`}>?</a>
+  );
+}
+
+/**
+ * The opened card: the illustration exactly as it was drawn, nothing covering
+ * the art. Kind and name in the header, the full rule in the footer beside
+ * the logo, with the "?" that leads to the real story.
+ */
+function BigCard({ card }) {
+  const art = artFor(card);
+  // Long names shrink to stay on one line: 18 characters fit at full size.
+  const fit = Math.min(1, 18 / card.name.length);
+  return (
+    <div className="vb__big" style={{ '--c': colorOf(card), '--t': tintOf(card), '--fit': fit }}>
+      <img className="vb__big-img" src={art.lg} alt="" draggable={false} />
+      <div className="vb__big-head">
+        <span className="vb__big-kind"><span aria-hidden="true">{card.icon}</span> {kindOf(card)}</span>
+        <span className="vb__big-name">{card.name}</span>
+      </div>
+      <div className="vb__big-foot"><span className="vb__big-rule">{card.rule} <RealStory card={card} /></span></div>
+    </div>
+  );
 }
 
 function initials(name) {
@@ -75,6 +133,17 @@ function initials(name) {
 }
 
 function CardBack({ count = null, label }) {
+  const art = artFor('back');
+  // The back of the deck as drawn: an explosion with a blank centre, which is
+  // where the number of cards left goes.
+  if (art) {
+    return (
+      <span className="vb__card vb__card--back vb__card--backart" aria-label={label}>
+        <img className="vb__card-img" src={art.sm} alt="" draggable={false} />
+        {count !== null && <span className="vb__back-count">{count}</span>}
+      </span>
+    );
+  }
   return (
     <span className="vb__card vb__card--back" aria-label={label}>
       <span className="vb__back-boom" aria-hidden="true">{'\u{1F4A5}'}</span>
@@ -123,16 +192,84 @@ export default function Board({ G, moves, playerID, seats }) {
   const [placeAt, setPlaceAt] = useState(0);
   const [toast, showToast] = useToast(3200);
 
+  // Sounds (sounds.js). Browsers refuse audio until the person has touched
+  // the page, so the first tap, click or key press anywhere unlocks it.
+  const sounds = useMemo(() => createSounds(), []);
+  const [muted, setMuted] = useState(sounds.muted);
+  useEffect(() => {
+    const unlock = () => sounds.unlock();
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); sounds.close(); };
+  }, [sounds]);
+  const toggleSound = () => { const next = !muted; sounds.setMuted(next); setMuted(next); if (!next) { sounds.unlock(); sounds.play('blip'); } };
+
   const nm = (s) => (s === mySeat ? 'You' : seats[s] ? seats[s].name : `Seat ${s + 1}`);
   const hex = (s) => (seats[s] ? seats[s].hex : '#8a97b5');
   const cardName = (k) => (BY_KEY[k] ? BY_KEY[k].name : k);
 
   const hand = useMemo(() => (me ? sortHand(me.hand) : []), [me]);
+
+  // Every card in the hand is on screen at once (hand-layout.js). The space
+  // is measured, not assumed: everything else on the board keeps its height,
+  // the table gives up what it can spare down to its minimum, and the hand
+  // gets the rest. Re-measured after every render (the action bar and the
+  // private strip change height) and when the board is resized.
+  const tableRef = useRef(null);
+  const handRef = useRef(null);
+  const [handFit, setHandFit] = useState(null);
+  const measureHand = useCallback(() => {
+    const root = wrap.current; const handEl = handRef.current; const tableEl = tableRef.current;
+    if (!root || !handEl || !tableEl || !unit) return;
+    const px = (v) => parseFloat(v) || 0;
+    const hs = getComputedStyle(handEl);
+    let others = 0; let inFlow = 0;
+    for (const c of root.children) {
+      const pos = getComputedStyle(c).position;
+      if (pos === 'absolute' || pos === 'fixed' || c.offsetHeight === 0) continue;
+      inFlow += 1;
+      if (c !== handEl && c !== tableEl) others += c.offsetHeight;
+    }
+    const gapY = px(getComputedStyle(root).rowGap);
+    const height = root.clientHeight - others - gapY * Math.max(0, inFlow - 1) - px(getComputedStyle(tableEl).minHeight) - px(hs.paddingTop) - px(hs.paddingBottom);
+    const width = handEl.clientWidth - px(hs.paddingLeft) - px(hs.paddingRight);
+    // "Roomy": the table at 6.2 cells, enough for the piles and the Exit strip.
+    const roomy = height - Math.max(0, unit * 6.2 - px(getComputedStyle(tableEl).minHeight));
+    const next = fitHand({ n: hand.length, width, height, roomy, maxW: unit * 2.9 });
+    setHandFit((prev) => (prev && prev.w === next.w && prev.perRow === next.perRow && prev.rows === next.rows && prev.scroll === next.scroll ? prev : next));
+  }, [unit, hand.length]);
+  useLayoutEffect(() => { measureHand(); });
+  useLayoutEffect(() => {
+    if (!wrap.current) return undefined;
+    const ro = new ResizeObserver(() => measureHand());
+    ro.observe(wrap.current);
+    return () => ro.disconnect();
+  }, [measureHand]);
   const selected = sel.filter((id) => hand.includes(id));
   const acts = useMemo(() => (mySeat === null ? [] : legalActions(G, mySeat)), [G, mySeat]);
   const selActs = useMemo(() => (mySeat === null ? [] : selectionActions(G, mySeat, selected)), [G, mySeat, selected.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   const can = (move) => acts.some((a) => a.move === move);
   const myTurn = can('draw');
+
+  // Your turn, and the end of the game, have no log entry of their own: they
+  // sound when the fact changes, never on the first render (a refresh
+  // mid-turn must not chime).
+  const wasMyTurn = useRef(null);
+  useEffect(() => {
+    if (wasMyTurn.current === false && myTurn) sounds.queue('turn');
+    wasMyTurn.current = myTurn;
+  }, [myTurn, sounds]);
+  const wasOver = useRef(null);
+  const isOver = !!G.over;
+  useEffect(() => {
+    if (wasOver.current === false && isOver) {
+      const place = G.over && Array.isArray(G.over.placements) && mySeat !== null ? G.over.placements[mySeat] : null;
+      sounds.queue(place === 1 || mySeat === null ? 'win' : 'lose');
+    }
+    wasOver.current = isOver;
+  }, [isOver]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The BOOM pictures are only seen for a second and a half: have them ready.
+  useEffect(() => { for (const c of Object.values(BY_KEY)) { if (c.type === 'boom' && artFor(c.key)) { const im = new Image(); im.src = artFor(c.key).sm; } } }, []);
   const owe = mySeat !== null && !!p && waiting.includes(mySeat);
   const stage = owe ? p.stage : null;
   const canPass = stage === 'react' && acts.some((a) => a.move === 'react' && a.args[0] === true);
@@ -144,6 +281,8 @@ export default function Board({ G, moves, playerID, seats }) {
 
   // --- things that happen once per log entry (never on a re-render) ----------
   useLogFeed(G, (e) => {
+    const snd = soundFor(e, mySeat);
+    if (snd) sounds.queue(snd);
     if (e.t === 'boom') setBoomFx({ n: e.n, k: e.k, p: e.p, out: null });
     else if (e.t === 'pivot') setBoomFx((f) => (f ? { ...f, out: 'pivot' } : f));
     else if (e.t === 'bust') setBoomFx((f) => (f ? { ...f, out: 'bust' } : f));
@@ -202,7 +341,7 @@ export default function Board({ G, moves, playerID, seats }) {
     setSheet(null);
   }, [stageKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = (id) => setSel((cur) => { const c = cur.filter((x) => hand.includes(x)); return c.includes(id) ? c.filter((x) => x !== id) : [...c, id]; });
+  const toggle = (id) => { sounds.play('tick'); setSel((cur) => { const c = cur.filter((x) => hand.includes(x)); return c.includes(id) ? c.filter((x) => x !== id) : [...c, id]; }); };
   const detail = (card) => setSheet({ kind: 'detail', id: card.id });
   const send = (fn) => { fn(); setSel([]); setSheet(null); };
 
@@ -294,7 +433,7 @@ export default function Board({ G, moves, playerID, seats }) {
   };
 
   return (
-    <div className="vb" ref={wrap} style={{ '--u': `${unit || 28}px` }} data-turn={myTurn ? '1' : '0'}>
+    <div className="vb" ref={wrap} style={{ '--u': `${unit || 28}px` }} data-turn={myTurn ? '1' : '0'} data-compact={(unit || 28) * 2.9 < 80 ? '1' : undefined}>
       {/* round, variant and the wordmark */}
       <div className="vb__top">
         <span className="vb__round">Quarter <b>{G.round}</b> / {G.rounds}</span>
@@ -323,7 +462,10 @@ export default function Board({ G, moves, playerID, seats }) {
       </div>
 
       {/* the table: draw pile, discard pile, what just happened */}
-      <div className="vb__table">
+      <div className="vb__table" ref={tableRef}>
+        <button type="button" className="vb__sound" onClick={toggleSound} aria-pressed={!muted} aria-label={muted ? 'Turn sounds on' : 'Mute sounds'} title={muted ? 'Sounds are off' : 'Sounds are on'}>
+          <span aria-hidden="true">{muted ? '\u{1F507}' : '\u{1F50A}'}</span>
+        </button>
         <div className="vb__table-main">
         <div className="vb__piles">
           <button type="button" className={`vb__pile${myTurn ? ' vb__pile--live' : ''}`} disabled={!myTurn} onClick={() => send(() => moves.draw())} aria-label={myTurn ? `Draw a card and end your turn. ${deckCount} cards in the pile.` : `Draw pile: ${deckCount} cards`}>
@@ -377,7 +519,9 @@ export default function Board({ G, moves, playerID, seats }) {
 
       {boomFx && (
         <div key={boomFx.n} className={`vb__boom${boomFx.out ? ` vb__boom--${boomFx.out}` : ''}`} role="alert">
-          <div className="vb__boom-burst" aria-hidden="true">{'\u{1F4A5}'}</div>
+          {artFor(boomFx.k)
+            ? <img className="vb__boom-card" src={artFor(boomFx.k).sm} alt="" draggable={false} />
+            : <div className="vb__boom-burst" aria-hidden="true">{'\u{1F4A5}'}</div>}
           <div className="vb__boom-word">BOOM!</div>
           <div className="vb__boom-name">{cardName(boomFx.k)}</div>
           <div className="vb__boom-out">{boomFx.out === 'pivot' ? `${nm(boomFx.p)} pivoted. Saved!` : boomFx.out === 'bust' ? `${nm(boomFx.p)} went bankrupt` : `${nm(boomFx.p)} drew it`}</div>
@@ -408,7 +552,10 @@ export default function Board({ G, moves, playerID, seats }) {
 
       {/* your hand */}
       {me ? (
-        <div className="vb__hand" aria-label="Your hand">
+        <div
+          className={`vb__hand${handFit && handFit.scroll ? ' vb__hand--scroll' : ''}`} ref={handRef} aria-label="Your hand" data-rows={handFit ? handFit.rows : 1} data-small={handFit && handFit.w < 80 ? '1' : undefined}
+          style={handFit ? { '--hand-w': `${handFit.w}px`, '--hand-cols': handFit.perRow } : undefined}
+        >
           {hand.map((id) => (
             <CardFace
               key={id} card={CARD[id]} selected={selected.includes(id)} fresh={id === freshId ? `f${noteN}` : null}
@@ -580,22 +727,23 @@ function DynamicLink({ d }) {
   return <a className="vb__learn" href={d.link} target="_blank" rel="noopener noreferrer">The business behind {d.name}: {d.dynamic} {'↗'}</a>;
 }
 
-/** The full card: rule text, flavour line, the business dynamic and the link to the real story. */
+/** The opened card: the full card as drawn, its flavour line, the business move behind it and the link to the real story. */
 function Detail({ card, onClose }) {
   const set = card.set ? SETS[card.set] : null;
+  const art = artFor(card);
   return (
     <Sheet title={card.name} onClose={onClose}>
-      <div className="vb__detail">
-        <div className="vb__detail-card"><CardFace card={card} /></div>
+      <div className={`vb__detail${art ? ' vb__detail--art' : ''}`}>
+        {art ? <BigCard card={card} /> : <div className="vb__detail-card"><CardFace card={card} /></div>}
         <div className="vb__detail-text">
-          <div className="vb__eyebrow">{card.type === 'founder' ? `${set.name} · ${set.nickname}` : TYPES[card.type].label}</div>
-          <p className="vb__detail-rule">{card.rule}</p>
+          {!art && <div className="vb__eyebrow">{card.type === 'founder' ? `${set.name} · ${set.nickname}` : TYPES[card.type].label}</div>}
+          {!art && <p className="vb__detail-rule">{card.rule} <RealStory card={card} /></p>}
           <p className="vb__detail-flavor">{card.flavor}</p>
-          {set && <p className="vb__muted">Running gag: {set.gag}.</p>}
+          {set && <p className="vb__muted">{art ? `${set.name}, ${set.nickname}. ` : ''}Running gag: {set.gag}.</p>}
+          <div className="vb__dynamic"><span className="vb__eyebrow">The real business move</span><b>{card.dynamic}</b></div>
+          <a className="vb__learn" href={card.link} target="_blank" rel="noopener noreferrer">Learn the real story {'↗'}</a>
         </div>
       </div>
-      <div className="vb__dynamic"><span className="vb__eyebrow">Business dynamic</span><b>{card.dynamic}</b></div>
-      <a className="vb__learn" href={card.link} target="_blank" rel="noopener noreferrer">Learn the real story {'↗'}</a>
       <p className="vb__brandline"><b>{WORDMARK}</b> {'·'} {MAKER_LINE}</p>
     </Sheet>
   );

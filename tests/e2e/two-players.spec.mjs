@@ -140,6 +140,8 @@ export default async function twoPlayers({ baseUrl, browser, check, shots }) {
       await C.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click();
       await C.getByRole('dialog').getByText('Good luck, both.').waitFor();
       await A.getByRole('button', { name: 'Chat, 1 new' }).waitFor();
+      // The line itself is on A's screen already: nothing has to be opened to see it.
+      await A.locator('.stage__ticker').getByText(/Good luck, both\./).waitFor();
       await A.getByRole('button', { name: /^Chat/ }).click();
       await A.getByRole('dialog').getByText('Good luck, both.').waitFor();
       await shots(A, 'stage-chat-drawer-360');

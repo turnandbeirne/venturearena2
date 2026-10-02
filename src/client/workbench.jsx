@@ -6,6 +6,7 @@
 //     &seat=0         which seat you are (or seat=watch)
 //     &auto=1         bots play every seat, yours included
 //     &delay=400      ms between bot moves
+//     &seed=7         the same deal every time
 //
 // The match runs through games/sim.js, the same reducer path the server uses,
 // and the board receives the same stripped view a browser at that seat would.
@@ -40,7 +41,10 @@ function Workbench({ mod, botMod, meta, rulesMod }) {
     let settings = {};
     try { settings = JSON.parse(q.get('settings') || '{}'); } catch { /* ignore */ }
     const base = { size: nSeats, fillBots: true, botLevel: 2, ...settings };
-    match.current = createMatch(mod.rules, nSeats, { arena: true, seats: seats.map((s) => ({ name: s.name, avatar: s.avatar, bot: !!s.bot, botSpec: s.bot, color: s.color })), settings: rulesMod.normalizeSettings ? rulesMod.normalizeSettings(base) : base, seed: Number(q.get('seed') || 12345) });
+    // &seed=7 deals the same cards every time (boardgame.io seeds its shuffle
+    // from the game object, not from the setup data).
+    const rules = q.get('seed') ? { ...mod.rules, seed: q.get('seed') } : mod.rules;
+    match.current = createMatch(rules, nSeats, { arena: true, seats: seats.map((s) => ({ name: s.name, avatar: s.avatar, bot: !!s.bot, botSpec: s.bot, color: s.color })), settings: rulesMod.normalizeSettings ? rulesMod.normalizeSettings(base) : base, seed: Number(q.get('seed') || 12345) });
   }
   const m = match.current;
   window.__match = m; // for the layout tests

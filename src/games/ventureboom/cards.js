@@ -96,6 +96,25 @@ const PIVOT_LINES = [
   "We're pre-revenue by choice.",
 ];
 
+// A copy of a card may have a picture of its own: its line -> the name of the
+// art file (art/sm/<name>.webp). A copy with no entry here, or whose file is
+// not there yet, uses the card's own picture (pivot.webp). The picture never
+// changes what the card is or does.
+const PIVOT_ART = {
+  "We're an AI company now.": 'pivot-ai',
+  'Pivot to video.': 'pivot-video',
+  "Actually, it's a platform.": 'pivot-platform',
+  'We call it a strategic realignment.': 'pivot-realignment',
+  'Same product, new logo.': 'pivot-new-logo',
+};
+
+// The four Out of Office cards share two pictures: the hammock on the beach
+// (out-of-office.webp, the card's own picture) and the pool.
+const OOO_ART = {
+  'I am away with limited access to consequences.': 'out-of-office-pool',
+  'For urgent matters, please contact literally anyone else.': 'out-of-office-pool',
+};
+
 const PASS_LINES = [
   "It's a no from me.",
   "We'll circle back. (We won't.)",
@@ -139,7 +158,8 @@ const UNICORN_LINES = [
   'Mythical, magical, mostly marketing.',
 ];
 
-// [name, flavour]. The Gantt Chart Gary line is the owner's; the rest follow its voice.
+// [name, flavour, key?]. The Gantt Chart Gary line is the owner's; the rest follow its voice.
+// The key is the slug of the name unless a third entry pins it.
 const FOUNDERS = {
   inventors: [
     ['Duct Tape Dana', 'Fixed the prototype, the chair and this sentence with one roll.'],
@@ -153,7 +173,11 @@ const FOUNDERS = {
     ['Blockchain Brad', 'Put a blockchain on a toaster. The toast is now permanent.'],
     ['Moonshot Molly', 'Her five-year plan has one step. It is the moon.'],
     ['Forever-Beta Bea', 'Launching any day now. Has said so every day for six years.'],
-    ["It's-Like-X-for-Y Yuri", "It's like a sandwich, but for meetings. Investors nodded."],
+    // Renamed from "It's-Like-X-for-Y Yuri" (too long for a card). The third
+    // entry pins his key: keys are written into the logs of games already in
+    // progress and into the address of his real-world story page, so a
+    // renamed card keeps the key it was dealt with.
+    ['Like-X-for-Y Yuri', "It's like a sandwich, but for meetings. Investors nodded.", 'its-like-x-for-y-yuri'],
   ],
   operators: [
     ['Gantt Chart Gary', "Scheduled this card being played. It's 4 minutes late."],
@@ -189,25 +213,26 @@ function build() {
   const out = [];
   let n = 0;
   const add = (card) => { n += 1; out.push({ id: `c${String(n).padStart(2, '0')}`, ...card }); };
-  const typed = (type, name, flavor, slugName) => add({
-    type, name, key: slug(name), rule: TYPES[type].rule, short: TYPES[type].short, flavor, icon: TYPES[type].icon, ...dyn(slugName),
+  const typed = (type, name, flavor, slugName, art = null) => add({
+    type, name, key: slug(name), rule: TYPES[type].rule, short: TYPES[type].short, flavor, icon: TYPES[type].icon, ...dyn(slugName), ...(art ? { art } : {}),
   });
   for (const [name, s, flavor] of BOOMS) typed('boom', name, flavor, s);
-  for (const line of PIVOT_LINES) typed('pivot', 'Pivot', `"${line}"`, 'pivot');
+  for (const line of PIVOT_LINES) typed('pivot', 'Pivot', `"${line}"`, 'pivot', PIVOT_ART[line]);
   for (const line of PASS_LINES) typed('pass', 'Hard Pass', line, 'hard-pass');
   for (const line of HOSTILE_LINES) typed('hostile', 'Hostile Takeover', line, 'hostile-takeover');
-  for (const line of OOO_LINES) typed('ooo', 'Out of Office', line, 'out-of-office');
+  for (const line of OOO_LINES) typed('ooo', 'Out of Office', line, 'out-of-office', OOO_ART[line]);
   for (const line of RESEARCH_LINES) typed('research', 'Market Research', line, 'market-research');
   for (const line of REORG_LINES) typed('reorg', 'Reorg', line, 'reorg');
   for (const line of MENTOR_LINES) typed('mentor', 'Ask a Mentor', line, 'mentor');
   for (const set of SET_IDS) {
-    for (const [name, flavor] of FOUNDERS[set]) {
+    for (const [name, flavor, pinned] of FOUNDERS[set]) {
+      const key = pinned || slug(name);
       add({
-        type: 'founder', name, key: slug(name), set, rule: TYPES.founder.rule, short: SETS[set].name, flavor, icon: SETS[set].icon,
+        type: 'founder', name, key, set, rule: TYPES.founder.rule, short: SETS[set].name, flavor, icon: SETS[set].icon,
         // Founder cards have no row of their own in the Business Dynamics
         // table: their Hall of Fame page covers the three founder dynamics.
         dynamic: [DYN.poach, DYN['acqui-hire'], DYN.exits].join(' / '),
-        link: `${BASE}/hof/${slug(name)}`,
+        link: `${BASE}/hof/${key}`,
       });
     }
   }
@@ -222,6 +247,9 @@ export const CARD = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 /** key (slug of the name) -> the first card with that name, for showing a card the log names. */
 export const BY_KEY = {};
 for (const c of CARDS) if (!BY_KEY[c.key]) BY_KEY[c.key] = c;
+
+/** Every name an art file may have: each card's key, plus the names of the per-copy pictures. */
+export const ART_NAMES = [...new Set(CARDS.flatMap((c) => (c.art ? [c.key, c.art] : [c.key])))];
 
 /** Card names a player may call for an Acqui-hire: anything that can be in a hand. */
 export const NAMEABLE = [...new Set(CARDS.filter((c) => c.type !== 'boom').map((c) => c.key))];

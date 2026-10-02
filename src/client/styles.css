@@ -128,10 +128,27 @@ summary { cursor: pointer; padding: 10px 0; }
 /* game stage: fills the screen under the header on phones */
 .stage { position: fixed; inset: 0; z-index: 40; background: var(--navy); display: flex; flex-direction: column; }
 .stage__bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--navy-2); }
-.stage__seats { display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px; }
+.stage__seats { display: flex; gap: 6px; overflow-x: auto; padding: 6px 10px; }
 .stage__seat { flex: none; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1.5px solid transparent; font-size: 0.8rem; max-width: 46vw; }
 .stage__seat.turn { border-color: var(--gold); background: rgba(232, 182, 74, 0.12); }
 .stage__banner { text-align: center; font-size: 0.95rem; padding: 2px 10px 6px; min-height: 28px; }
+/* Table talk is always on screen (GameStage.jsx). The stage's own parts sit
+   in .stage__main; on a wide window .stage__chat is docked beside it. */
+.stage__main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.stage--dock { flex-direction: row; }
+.stage__chat { flex: none; width: 320px; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); border-left: 1px solid var(--line); background: var(--navy-2); }
+.stage__chat-title { font-family: var(--display); font-size: 0.95rem; margin: 0; }
+.stage__chat .chat { flex: 1; min-height: 0; }
+/* On a phone: whose move it is on the left, the latest chat line on the right.
+   One row, so the strip costs the board almost nothing. */
+.stage__status { display: flex; align-items: center; gap: 8px; padding: 0 10px 4px; min-height: 40px; }
+.stage__status .stage__banner { flex: 0 1 auto; min-width: 0; max-width: 100%; min-height: 0; padding: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage--dock .stage__status { justify-content: center; }
+.stage__ticker { flex: 1 1 0; min-width: 120px; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--muted); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer; }
+.stage__ticker-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage__ticker-text b { color: var(--cream); }
+.stage__ticker--new { border-color: var(--gold); color: var(--cream); }
+.stage__ticker-count { flex: none; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--gold); color: #1a1200; font-weight: 800; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; }
 .stage__board { flex: 1; min-height: 0; padding: 6px 8px 10px; display: flex; }
 .stage__foot { display: flex; align-items: center; gap: 8px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--navy-2); }
 .drawer { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }

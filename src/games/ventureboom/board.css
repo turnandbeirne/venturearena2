@@ -1,7 +1,7 @@
 /* VentureBoom board. Every size derives from --u, one cell of the measured
    board (Board.jsx, useFit), so cards scale with the space the board is given.
    No images: cards are drawn with CSS. Classes are prefixed vb__. */
-.vb { position: relative; width: 100%; max-width: 780px; height: 100%; min-height: 0; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; overflow: hidden; overflow: clip; font-size: 0.82rem; line-height: 1.25; --card-w: calc(var(--u) * 2.9); }
+.vb { position: relative; width: 100%; max-width: 780px; height: 100%; min-height: 0; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; overflow: hidden; overflow: clip; font-size: 0.82rem; line-height: 1.25; --card-w: calc(var(--u) * 2.9); --ratio: 1.445; }
 .vb button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
 
 /* ---- top line ---- */
@@ -27,7 +27,7 @@
 .vb__seat-turns { color: #ffb4a6; font-weight: 800; }
 
 /* ---- cards ---- */
-.vb__card { --w: var(--card-w); position: relative; flex: none; width: var(--w); height: calc(var(--w) * 1.4); padding: 0; border: 0; border-radius: calc(var(--w) * 0.09); background: #fbf7ee; color: #1b2440; display: flex; flex-direction: column; align-items: stretch; text-align: center; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(27, 36, 64, 0.18); font-family: var(--sans); line-height: 1.1; transition: transform 0.14s ease-out, box-shadow 0.14s; }
+.vb__card { --w: var(--card-w); position: relative; flex: none; width: var(--w); height: calc(var(--w) * var(--ratio)); padding: 0; border: 0; border-radius: calc(var(--w) * 0.09); background: #fbf7ee; color: #1b2440; display: flex; flex-direction: column; align-items: stretch; text-align: center; overflow: hidden; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(27, 36, 64, 0.18); font-family: var(--sans); line-height: 1.1; transition: transform 0.14s ease-out, box-shadow 0.14s; }
 button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .vb__card-band { flex: none; height: 19%; display: flex; align-items: center; gap: 3%; padding: 0 6%; background: var(--c); color: #fff; font-size: calc(var(--w) * 0.106); font-weight: 800; white-space: nowrap; overflow: hidden; }
 .vb__card-bandicon { font-size: 1.2em; }
@@ -41,19 +41,50 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 .vb__card-pips i { width: 9%; aspect-ratio: 1; border-radius: 50%; border: 1.5px solid var(--c); }
 .vb__card-pips i.on { background: var(--c); }
 .vb__card-check { position: absolute; top: 3%; right: 4%; width: 22%; aspect-ratio: 1; border-radius: 50%; background: var(--gold); color: #1a1200; font-weight: 900; font-size: calc(var(--w) * 0.16); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
-.vb__card--sel { transform: translateY(calc(var(--u) * -0.36)); box-shadow: 0 0 0 3px var(--gold), 0 8px 14px rgba(0, 0, 0, 0.5); }
+.vb__card--sel { z-index: 1; transform: translateY(calc(var(--u) * -0.36)); box-shadow: 0 0 0 3px var(--gold), 0 8px 14px rgba(0, 0, 0, 0.5); }
 .vb__card--new { animation: vb-arrive 0.5s ease-out; }
 .vb__card--boom { background: #2a0f0b; color: #ffe2db; }
 .vb__card--boom .vb__card-rule { color: #f3b6aa; }
 .vb__card--unicorn { background: linear-gradient(160deg, #fff7df, #f3e6ff); }
 .vb__card--empty { align-items: center; justify-content: center; background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16); font-size: calc(var(--w) * 0.15); }
 .vb__card--back { align-items: center; justify-content: center; gap: 4%; color: var(--gold); background: repeating-linear-gradient(135deg, rgba(232, 182, 74, 0.1) 0 6px, transparent 6px 12px), linear-gradient(160deg, #1d2f66, #0d1838); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 0 0 2px rgba(232, 182, 74, 0.75), inset 0 0 0 5px #0d1838; }
+/* With the drawn back: no stripes, and the count sits in the picture's blank centre (49% down the card). */
+.vb__card--backart { background: #16224a; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45); border-radius: calc(var(--w) * 0.045); }
+.vb__card--backart .vb__back-count { position: absolute; left: 30%; right: 30%; top: 39.5%; height: 19%; display: flex; align-items: center; justify-content: center; font-size: max(calc(var(--w) * 0.22), 13px); line-height: 1; }
 .vb__back-mark { font-family: var(--display); font-weight: 800; font-size: calc(var(--w) * 0.125); letter-spacing: -0.02em; white-space: nowrap; }
 .vb__back-boom { font-size: calc(var(--w) * 0.3); line-height: 1; }
 .vb__back-count { font-family: var(--display); font-weight: 800; font-size: calc(var(--w) * 0.24); color: var(--cream); }
 
+/* ---- illustrated cards (art.js) ----
+   The picture is the owner's whole card: navy frame, blank header, art
+   window, footer band. Text is drawn on top: the kind of card in the header,
+   the name on a plate at the bottom where it has room for two lines.
+   (Putting the name in the header, as the frame invites, leaves one line: the
+   longest names shrank to nothing on a phone.) */
+.vb__card--art { background: #161b3a; color: var(--cream); border-radius: calc(var(--w) * 0.045); }
+.vb__card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.vb__card-kind { position: absolute; left: 4%; right: 4%; top: 0; height: 12.4%; display: flex; align-items: center; justify-content: center; gap: 0.3em; font-weight: 800; font-size: max(calc(var(--w) * 0.088), 7.5px); color: var(--t, var(--gold-2)); white-space: nowrap; overflow: hidden; }
+.vb__card-kindtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.vb__card-plate { position: absolute; left: 0; right: 0; bottom: 0; padding: 13% 3% 4.5%; display: flex; flex-direction: column; align-items: center; text-align: center; background: linear-gradient(to bottom, rgba(22, 27, 58, 0), rgba(22, 27, 58, 0.9) calc(var(--w) * 0.12), rgba(22, 27, 58, 0.97)); }
+.vb__card-pname { font-family: var(--display); font-weight: 800; font-size: max(calc(var(--w) * 0.118), 9px); line-height: 1.08; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.vb__card-prule { margin-top: 3%; font-size: max(calc(var(--w) * 0.082), 7.5px); line-height: 1.15; color: rgba(246, 241, 231, 0.84); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.vb__card--art .vb__card-pips { width: 100%; padding-top: 5%; }
+.vb__card--art .vb__card-pips i { width: 7.5%; border-color: var(--t, var(--gold-2)); }
+.vb__card--art .vb__card-pips i.on { background: var(--t, var(--gold-2)); }
+.vb__card--art .vb__card-pips:last-child { margin-bottom: 0; }
+/* On the smallest cards the plate is the name alone, on up to three lines
+   ("Sir / Solders- / a-Lot" does not fit two at this size). */
+.vb__hand[data-small] .vb__card-pname, .vb[data-compact] .vb__card-pname { -webkit-line-clamp: 3; letter-spacing: -0.01em; }
+.vb__hand[data-small] .vb__card-prule, .vb__hand[data-small] .vb__card--art .vb__card-pips,
+.vb[data-compact] .vb__card-prule, .vb[data-compact] .vb__card--art .vb__card-pips,
+.vb__pile .vb__card-prule, .vb__pile .vb__card--art .vb__card-pips,
+.vb__cards--small .vb__card-prule, .vb__cards--small .vb__card--art .vb__card-pips { display: none; }
+
 /* ---- table centre ---- */
-.vb__table { flex: 1 1 0; min-height: calc(var(--u) * 3.7); display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; container: vbtable / size; border-radius: 14px; background: radial-gradient(ellipse at 30% 40%, rgba(47, 183, 166, 0.16), transparent 70%), rgba(255, 255, 255, 0.04); border: 1px solid var(--line); overflow: hidden; }
+.vb__table { position: relative; flex: 1 1 0; min-height: calc(var(--u) * 3.7); display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; container: vbtable / size; border-radius: 14px; background: radial-gradient(ellipse at 30% 40%, rgba(47, 183, 166, 0.16), transparent 70%), rgba(255, 255, 255, 0.04); border: 1px solid var(--line); overflow: hidden; }
+/* Sound on / off: in the table's top corner, where it costs no height. */
+.vb__sound { position: absolute; top: 4px; right: 4px; z-index: 2; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: rgba(11, 21, 48, 0.55); color: var(--cream); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.vb__sound[aria-pressed="false"] { opacity: 0.75; }
 .vb__table-main { flex: 1 1 0; min-height: 0; display: flex; gap: 8px; align-items: stretch; }
 /* The Exit areas only appear when the table is tall enough to hold them
    (a container query: browsers without it simply keep the strip hidden). */
@@ -105,21 +136,36 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 .vb__chip--btn { min-height: 40px; min-width: 40px; cursor: pointer; }
 .vb__chip--exit { background: rgba(232, 182, 74, 0.18); color: var(--gold-2); border-left-color: var(--gold); }
 
-/* ---- private strip, hand, action bar ---- */
-.vb__mine { flex: none; display: flex; align-items: center; gap: 10px; overflow-x: auto; scrollbar-width: none; min-height: 40px; }
-.vb__mine::-webkit-scrollbar, .vb__hand::-webkit-scrollbar, .vb__bar-acts::-webkit-scrollbar { display: none; }
-.vb__mine-group { flex: none; display: flex; align-items: center; gap: 5px; }
+/* ---- private strip, hand, action bar ----
+   Nothing here scrolls sideways. (Bug: the hand, the action buttons and the
+   private strip were each one row that scrolled sideways with the scrollbar
+   hidden: whatever did not fit was invisible, and unreachable with a mouse.)
+   The strip and the buttons wrap; the hand is sized so every card shows. */
+.vb__mine { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 40px; }
+.vb__mine-group { flex: none; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .vb__mine-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-.vb__hand { flex: none; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: calc(var(--u) * 0.36 + 5px) 3px 5px; scrollbar-width: none; overscroll-behavior-x: contain; }
-.vb__empty, .vb__watch-note { color: var(--muted); padding: 10px 4px; }
+/* The hand: a grid of --hand-cols cards, each --hand-w wide. Board.jsx
+   measures the space and sets both (hand-layout.js) so that every card is on
+   screen at once. The top padding is room for a selected card to lift. */
+.vb__hand { flex: none; display: grid; grid-template-columns: repeat(var(--hand-cols, 4), var(--hand-w, var(--card-w))); justify-content: center; gap: 6px; padding: calc(var(--u) * 0.36 + 5px) 3px 5px; }
+.vb__hand .vb__card { --w: var(--hand-w, var(--card-w)); touch-action: manipulation; }
+/* Small cards keep text a person can read; the card clips what does not fit. */
+.vb__hand .vb__card-band { font-size: max(calc(var(--w) * 0.106), 8px); }
+.vb__hand .vb__card-name { font-size: max(calc(var(--w) * 0.132), 9px); }
+.vb__hand .vb__card-rule { font-size: max(calc(var(--w) * 0.104), 8px); }
+/* More cards than fit even at the smallest size a thumb can hit: the hand
+   scrolls DOWN, and shows that it does. */
+.vb__hand--scroll { flex: 0 1 auto; min-height: calc(var(--hand-w, 44px) * var(--ratio) + var(--u) * 0.36 + 10px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; overscroll-behavior: contain; }
+.vb__empty, .vb__watch-note { grid-column: 1 / -1; color: var(--muted); padding: 10px 4px; }
 .vb__watch { flex: none; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; max-height: 30%; overflow-y: auto; }
-.vb__bar { flex: none; display: flex; align-items: center; gap: 6px; min-height: 44px; }
-.vb__bar-acts { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-.vb__bar-hint { flex: none; color: var(--muted); font-size: 0.76rem; white-space: nowrap; }
+.vb__bar { flex: none; display: flex; align-items: flex-end; gap: 6px; min-height: 44px; }
+.vb__bar-acts { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vb__bar-hint { flex: 1 1 auto; min-width: 0; color: var(--muted); font-size: 0.76rem; }
 
 /* ---- the BOOM moment ---- */
 .vb__boom { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; border-radius: 14px; background: radial-gradient(circle at 50% 45%, rgba(214, 62, 38, 0.96), rgba(60, 10, 6, 0.96) 70%); color: #fff; animation: vb-boom 0.45s cubic-bezier(0.2, 1.4, 0.4, 1); pointer-events: none; }
 .vb__boom-burst { font-size: calc(var(--u) * 2.6); line-height: 1; animation: vb-shake 0.5s linear 2; }
+.vb__boom-card { width: calc(var(--u) * 5.2); height: calc(var(--u) * 5.2 * var(--ratio)); object-fit: cover; border-radius: calc(var(--u) * 0.24); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6); margin-bottom: 6px; animation: vb-shake 0.5s linear 2; }
 .vb__boom-word { font-family: var(--display); font-weight: 800; font-size: calc(var(--u) * 1.5); letter-spacing: 0.02em; line-height: 1; }
 .vb__boom-name { font-size: calc(var(--u) * 0.62); font-weight: 700; opacity: 0.95; }
 .vb__boom-out { margin-top: 8px; padding: 5px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.4); font-weight: 800; font-size: 0.95rem; }
@@ -152,6 +198,27 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 .vb__exit { display: flex; flex-direction: column; gap: 6px; }
 .vb__exit-head b { color: var(--gold-2); margin-left: 4px; }
 .vb__detail { display: flex; gap: 12px; align-items: flex-start; }
+/* The opened card, as it was drawn: nothing covers the art. */
+.vb__detail--art { flex-wrap: wrap; justify-content: center; }
+.vb__detail--art .vb__detail-text { flex: 1 1 170px; }
+.vb__big { --bw: min(300px, 74vw); position: relative; flex: none; width: var(--bw); height: calc(var(--bw) * var(--ratio)); border-radius: calc(var(--bw) * 0.045); overflow: hidden; background: #161b3a; color: var(--cream); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
+.vb__big-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+/* The header band is 13.7% of the card, but the words keep to the top 11.4%:
+   on some cards the picture breaks out of its border into the band (the
+   detective's hat on Market Research), and the name must not sit on it. */
+.vb__big-head { position: absolute; left: 4%; right: 4%; top: 0; height: 11.4%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2%; text-align: center; }
+.vb__big-kind { font-weight: 800; font-size: max(calc(var(--bw) * 0.037), 10px); letter-spacing: 0.14em; text-transform: uppercase; color: var(--t, var(--gold-2)); white-space: nowrap; }
+.vb__big-name { font-family: var(--display); font-weight: 800; font-size: calc(var(--bw) * 0.077 * var(--fit, 1)); line-height: 1; letter-spacing: -0.01em; white-space: nowrap; }
+/* Beside the logo, inside the footer band. The longest rules (Hard Pass,
+   Hostile Takeover) take four lines: the spacing is tight enough that four
+   lines still end below the picture's border.
+   (Bug: at looser spacing a four-line rule grew 8 px up over the picture.) */
+.vb__big-foot { position: absolute; left: 23%; right: 3.5%; bottom: 0.8%; min-height: 13.6%; display: flex; align-items: center; }
+.vb__big-rule { padding: 0.32em 0.65em; border-radius: 0.55em; background: rgba(22, 27, 58, 0.88); font-size: max(calc(var(--bw) * 0.0415), 11px); line-height: 1.19; font-weight: 600; }
+/* The "?": small to the eye, with a finger-sized area around it. */
+.vb__q { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em; margin-left: 0.15em; vertical-align: middle; border-radius: 50%; border: 1.5px solid var(--gold); color: var(--gold-2); background: rgba(232, 182, 74, 0.14); font-weight: 800; font-size: 0.9em; line-height: 1; text-decoration: none; }
+.vb__q::after { content: ''; position: absolute; inset: -11px; }
+.vb__q:hover, .vb__q:focus-visible { background: var(--gold); color: #1a1200; }
 .vb__detail-card { --card-w: min(calc(var(--u) * 4.4), 150px); flex: none; }
 .vb__detail-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .vb__detail-rule { font-weight: 600; }
@@ -185,7 +252,7 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 @keyframes vb-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vb-rise { from { transform: translateY(24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .vb__card, .vb__card--new, .vb__pile--live .vb__pile-card, .vb__pile-card--deck, .vb__pile-card--top, .vb__line, .vb__note, .vb__pending, .vb__boom, .vb__boom-burst, .vb__veil, .vb__sheet, .vb__recap { animation: none; transition: none; }
+  .vb__card, .vb__card--new, .vb__pile--live .vb__pile-card, .vb__pile-card--deck, .vb__pile-card--top, .vb__line, .vb__note, .vb__pending, .vb__boom, .vb__boom-burst, .vb__boom-card, .vb__veil, .vb__sheet, .vb__recap { animation: none; transition: none; }
 }
 @media (min-width: 700px) {
   .vb { font-size: 0.9rem; gap: 8px; }

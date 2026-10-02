@@ -196,7 +196,7 @@ describe('ventureboom: the deck', () => {
   it('gives every card rule text, a flavour line, a business dynamic and a link', () => {
     for (const c of CARDS) {
       for (const f of ['id', 'type', 'name', 'key', 'rule', 'flavor', 'dynamic', 'link', 'icon']) expect(typeof c[f] === 'string' && c[f].length > 0, `${c.name}.${f}`).toBe(true);
-      if (c.type === 'founder') expect(c.link).toBe(`https://venturemaker.org/ventureboom/hof/${slug(c.name)}`);
+      if (c.type === 'founder') expect(c.link).toBe(`https://venturemaker.org/ventureboom/hof/${c.key}`);
       else expect(c.link.startsWith('https://venturemaker.org/ventureboom/dynamics/')).toBe(true);
     }
     expect(CARD[byName('Prototype Pete')].link).toBe('https://venturemaker.org/ventureboom/hof/prototype-pete');
@@ -212,7 +212,9 @@ describe('ventureboom: the deck', () => {
   it('prints no real entrepreneur and borrows no other game\'s name anywhere in the game folder', () => {
     const dir = path.resolve('src/games/ventureboom');
     const real = ['Wright', 'Dyson', 'Edison', 'Wozniak', 'Cochrane', 'Jobs', 'Buterin', 'Musk', 'Hastings', 'Chesky', 'Henry Ford', 'Kroc', 'Grove', 'Walton', 'Bezos', 'Buffett', 'Munger', 'Conway', 'Doriot', 'Thiel', 'Mary Kay', 'Vaynerchuk', 'Blakely', 'Lauder', 'Walker', 'Hoffman', 'Huffington', 'Wurman', 'Zuckerberg', 'Schultz', 'Tesla', 'Gates'];
-    for (const file of fs.readdirSync(dir)) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue; // art/ holds pictures, checked in tests/ventureboom-art.test.js
+      const file = entry.name;
       const text = fs.readFileSync(path.join(dir, file), 'utf8');
       for (const name of real) expect(new RegExp(`\\b${name}\\b`).test(text), `${file} mentions ${name}`).toBe(false);
       expect(/exploding\s*kittens/i.test(text), `${file} names another game`).toBe(false);

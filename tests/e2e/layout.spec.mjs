@@ -27,7 +27,32 @@ function measureStage(page) {
     const visible = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width >= 1 && r.height >= 1 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0; };
     const name = (el) => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).join('.')}` : ''} "${(el.getAttribute('aria-label') || el.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 30)}"`;
     const scrolls = (el, stop) => { for (let p = el.parentElement; p && p !== stop; p = p.parentElement) { const cs = getComputedStyle(p); if (/(auto|scroll|hidden|clip)/.test(`${cs.overflowX} ${cs.overflowY}`)) return true; } return false; };
-    const out = { fullscreen, innerWidth: vw, innerHeight: vh, scrollWidth: document.documentElement.scrollWidth, board: null, outside: [], outsideDecor: [], small: [], tight: [], smallest: null, controls: 0 };
+    const out = { fullscreen, innerWidth: vw, innerHeight: vh, scrollWidth: document.documentElement.scrollWidth, board: null, outside: [], outsideDecor: [], small: [], tight: [], smallest: null, controls: 0, hiddenScroll: [], hand: null };
+    // A strip that scrolls but shows no scrollbar hides its overflow from
+    // anyone with a mouse, and gives a thumb no hint that there is more.
+    // (Bug: VentureBoom's hand was one: with eight cards, four were off
+    // screen and there was no way to tell, or on a laptop to reach them.
+    // This test used to skip everything inside a scrolling parent.)
+    if (boardBox) {
+      for (const d of boardBox.querySelectorAll('*')) {
+        if (!visible(d)) continue;
+        const cs = getComputedStyle(d);
+        const overX = /(auto|scroll)/.test(cs.overflowX) && d.scrollWidth > d.clientWidth + 2;
+        const overY = /(auto|scroll)/.test(cs.overflowY) && d.scrollHeight > d.clientHeight + 2;
+        if (!overX && !overY) continue;
+        const noBar = cs.scrollbarWidth === 'none' || getComputedStyle(d, '::-webkit-scrollbar').display === 'none';
+        if (noBar) out.hiddenScroll.push(`${name(d)}: ${overX ? `${d.scrollWidth - d.clientWidth}px hidden sideways` : `${d.scrollHeight - d.clientHeight}px hidden below`}`);
+      }
+      // A hand of cards: every card fully on screen and inside the board.
+      const handEl = boardBox.querySelector('[aria-label="Your hand"]');
+      if (handEl) {
+        const box = (boardBox.firstElementChild || boardBox).getBoundingClientRect();
+        const cards = [...handEl.querySelectorAll('button')];
+        const cut = cards.filter((c) => { const r = c.getBoundingClientRect(); return r.left < box.left - 1 || r.right > box.right + 1 || r.top < box.top - 1 || r.bottom > box.bottom + 1 || r.left < -1 || r.right > vw + 1 || r.bottom > vh + 1; });
+        const first = cards[0] ? cards[0].getBoundingClientRect() : null;
+        out.hand = { cards: cards.length, cut: cut.map((c) => name(c)), cardW: first ? Math.round(first.width) : 0, cardH: first ? Math.round(first.height) : 0, rows: new Set(cards.map((c) => c.offsetTop)).size };
+      }
+    }
     const main = boardBox && boardBox.firstElementChild;
     if (main) {
       // The board proper: the game's root, or the one child it centres inside itself.
@@ -118,6 +143,102 @@ export default async function layout({ baseUrl, browser, check, shots }) {
               await check(`${tag}: every enabled button in the stage is at least 36px`, m.small.length === 0, m.small.slice(0, 6).join('; '));
               if (m.tight.length) check.warn(`${tag}: ${m.tight.length} button(s) under 40px`, m.tight.slice(0, 6).join('; '));
             }
+          }
+          // Table talk is always on screen: a docked window beside the board on a
+          // wide screen, a one-line strip showing the latest message on a phone.
+          const talk = await page.evaluate(() => {
+            const vw = window.innerWidth; const vh = window.innerHeight;
+            const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height, shown: r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none', inside: r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1 }; };
+            const dock = document.querySelector('.stage__chat');
+            return { dock: box(dock), input: box(dock && dock.querySelector('[aria-label="Chat message"]')), ticker: box(document.querySelector('.stage__ticker')), board: box(document.querySelector('.stage__board')) };
+          });
+          if (m.fullscreen) {
+            // VentureFlow has its own chat panel inside the game and a "Table talk" link.
+            await check(`${tag}: the game's own chat or its Table talk link is on the page`, await page.getByRole('button', { name: /^Table talk/ }).count() > 0);
+          } else if (!phone) {
+            await check(`${tag}: a chat window is docked beside the board, with a box to type in`, !!(talk.dock && talk.dock.shown && talk.dock.inside && talk.input && talk.input.shown && talk.input.inside && talk.dock.w >= 260), JSON.stringify(talk.dock));
+            await check(`${tag}: the chat window does not cover the board`, !!(talk.dock && talk.board && talk.board.r <= talk.dock.l + 1), talk.dock && talk.board ? `board ends at ${Math.round(talk.board.r)}, chat starts at ${Math.round(talk.dock.l)}` : 'missing');
+          } else {
+            await check(`${tag}: a chat strip is always on screen`, !!(talk.ticker && talk.ticker.shown && talk.ticker.inside && talk.ticker.h >= 36), JSON.stringify(talk.ticker));
+          }
+          await check(`${tag}: nothing is hidden in a strip that scrolls without a scrollbar`, m.hiddenScroll.length === 0, m.hiddenScroll.slice(0, 4).join('; '));
+          if (m.hand) {
+            await check(`${tag}: every card in your hand is fully visible`, m.hand.cards >= 7 && m.hand.cut.length === 0, `${m.hand.cards} cards in ${m.hand.rows} row(s) at ${m.hand.cardW}x${m.hand.cardH}; cut off: ${m.hand.cut.length ? m.hand.cut.join('; ') : 'none'}`);
+            await check(`${tag}: hand cards are big enough to tap`, m.hand.cardW >= 44, `${m.hand.cardW}x${m.hand.cardH}`);
+            check.info(`${tag}: hand`, `${m.hand.cards} cards, ${m.hand.rows} row(s), each ${m.hand.cardW}x${m.hand.cardH}`);
+          }
+          if (g.id === 'ventureboom') {
+            await check(`${tag}: a card opens to its full view, with the "?" that leads to its real-world story`, async () => {
+              await page.locator('[aria-label="Your hand"] button').first().click();
+              await page.getByRole('button', { name: 'Card details' }).click();
+              const dlg = page.getByRole('dialog');
+              await dlg.waitFor();
+              const q = dlg.locator('.vb__q').first();
+              await q.waitFor();
+              const a = await q.evaluate((el) => { const r = el.getBoundingClientRect(); return { href: el.href, target: el.target, rel: el.rel, text: el.textContent, label: el.getAttribute('aria-label'), inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight, round: getComputedStyle(el).borderRadius }; });
+              if (!/^https:\/\/venturemaker\.org\/ventureboom\/(hof|dynamics)\/[a-z0-9-]+$/.test(a.href)) throw new Error(`unexpected link ${a.href}`);
+              if (a.target !== '_blank' || !/noopener/.test(a.rel)) throw new Error('the link must open a new tab without handing over the page');
+              if (a.text !== '?' || !/real-world story/.test(a.label || '')) throw new Error(`label: ${a.text} / ${a.label}`);
+              if (!a.inside) throw new Error('the "?" is off screen');
+              await shots(page, `ventureboom-card-open-${vpName(vp)}`);
+              await dlg.getByRole('button', { name: 'Close' }).click();
+              await dlg.waitFor({ state: 'detached' });
+              await page.getByRole('button', { name: 'Clear selection' }).click();
+            });
+            // (Bug: Hard Pass and Hostile Takeover have four-line rules, and
+            // the rule panel grew 8 px up over the bottom of the picture.)
+            await check(`${tag}: on every card in the hand, opened, the rule sits in the footer and never over the picture`, async () => {
+              const n = await page.locator('[aria-label="Your hand"] button').count();
+              const seen = [];
+              for (let i = 0; i < n; i++) {
+                const card = page.locator('[aria-label="Your hand"] button').nth(i);
+                const name = ((await card.getAttribute('aria-label')) || '').split(',')[0];
+                if (seen.includes(name)) continue;
+                seen.push(name);
+                await card.click();
+                await page.getByRole('button', { name: 'Card details' }).click();
+                const dlg = page.getByRole('dialog');
+                await dlg.waitFor();
+                const m = await dlg.evaluate((el) => {
+                  const big = el.querySelector('.vb__big'); const rule = el.querySelector('.vb__big-rule'); const head = el.querySelector('.vb__big-name');
+                  if (!big || !rule) return null; // not illustrated yet: drawn by the game
+                  const b = big.getBoundingClientRect(); const r = rule.getBoundingClientRect(); const h = head.getBoundingClientRect();
+                  // The picture, with its border, ends 82.7% of the way down the card.
+                  // Art may break out of its border into the header band (Market
+                  // Research's hat reaches up to 9.8% of the card), so the name ends above that.
+                  return { over: Math.round((b.top + b.height * 0.828 - r.top) * 10) / 10, below: Math.round((r.bottom - b.bottom) * 10) / 10, nameWide: Math.round(h.width - b.width * 0.92), nameLow: Math.round((h.bottom - (b.top + b.height * 0.114)) * 10) / 10 };
+                });
+                if (m && m.nameLow > 0.5) throw new Error(`${name}: the name ends ${m.nameLow}px too low in the header, where a picture may reach`);
+                if (m && (m.over > 0 || m.below > 0)) throw new Error(`${name}: the rule ${m.over > 0 ? `covers ${m.over}px of the picture` : `hangs ${m.below}px below the card`}`);
+                if (m && m.nameWide > 0) throw new Error(`${name}: the name is ${m.nameWide}px wider than the header`);
+                await dlg.getByRole('button', { name: 'Close' }).click();
+                await dlg.waitFor({ state: 'detached' });
+                await page.getByRole('button', { name: 'Clear selection' }).click();
+              }
+            });
+            await check(`${tag}: the draw pile shows the drawn card back with the number of cards left in its blank centre`, async () => {
+              const m = await page.evaluate(() => {
+                const c = document.querySelector('.vb__pile .vb__card--backart'); if (!c) return null;
+                const n = c.querySelector('.vb__back-count'); const im = c.querySelector('img');
+                const cr = c.getBoundingClientRect(); const nr = n.getBoundingClientRect();
+                return { count: n.textContent, font: parseFloat(getComputedStyle(n).fontSize), cx: ((nr.left + nr.right) / 2 - cr.left) / cr.width, cy: ((nr.top + nr.bottom) / 2 - cr.top) / cr.height, textW: n.scrollWidth, boxW: cr.width * 0.4, loaded: im.complete && im.naturalWidth > 0 };
+              });
+              if (!m) throw new Error('the draw pile is not showing the drawn back');
+              if (!m.loaded) throw new Error('the picture did not load');
+              if (!/^\d+$/.test(m.count)) throw new Error(`count reads "${m.count}"`);
+              if (m.font < 12) throw new Error(`the count is ${m.font}px: too small to read`);
+              // The blank oval is centred 50% across and 49% down, and is 40% of the card wide.
+              if (Math.abs(m.cx - 0.5) > 0.03 || Math.abs(m.cy - 0.49) > 0.03) throw new Error(`the count is at ${Math.round(m.cx * 100)}% / ${Math.round(m.cy * 100)}%, outside the blank centre`);
+            });
+            await check(`${tag}: sound can be muted, and the choice is remembered after a reload`, async () => {
+              await page.getByRole('button', { name: 'Mute sounds' }).click();
+              await page.getByRole('button', { name: 'Turn sounds on' }).waitFor();
+              await page.reload();
+              await page.locator('[aria-label="Your hand"] button').first().waitFor();
+              await page.getByRole('button', { name: 'Turn sounds on' }).waitFor();
+              await page.getByRole('button', { name: 'Turn sounds on' }).click();
+              await page.getByRole('button', { name: 'Mute sounds' }).waitFor();
+            });
           }
           check.info(`${tag}: measured`, `scrollWidth ${m.scrollWidth}/${m.innerWidth}${m.board ? `, board ${m.board.w}x${m.board.h}` : ''}, smallest button ${m.smallest ? `${m.smallest.min}px ${m.smallest.what}` : 'none'}${m.fullscreen ? ', fullscreen' : ''}`);
           await check(`${tag}: no console errors or failed requests`, w.problems.length === 0, w.problems.join(' | '));
