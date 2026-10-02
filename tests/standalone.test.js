@@ -60,3 +60,60 @@ describe('a playtest copy can be kept out of search engines', () => {
     expect(typeof open.body).not.toBe('string'); // the built file, streamed
   });
 });
+
+describe('.gitignore', () => {
+  // (Bug: the line `data/` was meant for a local data folder at the top of
+  // the project. Without a leading slash it matches a folder called "data"
+  // ANYWHERE, so src/games/ventureflow/vf/data was silently left out of the
+  // first push and the site could not have been built from the repository.)
+  const lines = fs.readFileSync(path.join(root, '.gitignore'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const globToRe = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`);
+  /** A small reading of .gitignore, enough for the kinds of line this file uses. */
+  function ignored(rel) {
+    let out = false;
+    const parts = rel.split('/');
+    for (const raw of lines) {
+      const negate = raw.startsWith('!');
+      let pat = negate ? raw.slice(1) : raw;
+      const dirOnly = pat.endsWith('/'); if (dirOnly) pat = pat.slice(0, -1);
+      const anchored = pat.startsWith('/') || pat.includes('/'); if (pat.startsWith('/')) pat = pat.slice(1);
+      let hit = false;
+      if (anchored) {
+        const re = globToRe(pat); const depth = pat.split('/').length;
+        const upTo = dirOnly ? parts.length - 1 : parts.length;
+        hit = depth <= upTo && re.test(parts.slice(0, depth).join('/'));
+      } else {
+        const re = globToRe(pat);
+        hit = (dirOnly ? parts.slice(0, -1) : parts).some((seg) => re.test(seg));
+      }
+      if (hit) out = !negate;
+    }
+    return out;
+  }
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = dir ? `${dir}/${e.name}` : e.name;
+      if (e.isDirectory()) { if (!['node_modules', 'dist', 'build', '.git'].includes(e.name) && rel !== 'tests/e2e/shots') walk(rel, out); } else out.push(rel);
+    }
+    return out;
+  };
+
+  it('this reading of the file agrees with git on the lines that matter', () => {
+    expect(ignored('node_modules/x/index.js')).toBe(true);
+    expect(ignored('src/node_modules/x.js')).toBe(false);
+    expect(ignored('dist/index.html')).toBe(true);
+    expect(ignored('tests/e2e/shots/a.png')).toBe(true);
+    expect(ignored('.env')).toBe(true);
+    expect(ignored('.env.local')).toBe(true);
+    expect(ignored('.env.example')).toBe(false);
+    expect(ignored('keys/server.pem')).toBe(true);
+    expect(ignored('data/arena.json')).toBe(true);
+    expect(ignored('src/index.js')).toBe(false);
+  });
+
+  it('leaves out nothing the project needs: every source, test, script and doc file is kept', () => {
+    const files = walk('');
+    expect(files.length).toBeGreaterThan(300);
+    expect(files.filter(ignored)).toEqual([]);
+  });
+});
