@@ -1,0 +1,47 @@
+# Render blueprint: one web service. It refers to no other service or
+# repository. Its data goes to the Postgres you name in DATABASE_URL, in a
+# schema of its own (DATABASE_SCHEMA), so it can sit in a Supabase project that
+# another application uses without touching that application's tables.
+# README: "Sharing a Supabase project".
+#
+# Render dashboard > New > Blueprint > pick this repository > Apply.
+#
+# ONE instance. Live game state, turn clocks and bot timers are in the server's
+# memory, so a second instance would hold its own copy of every table. Do not
+# turn on autoscaling. Render passes WebSockets by default.
+services:
+  - type: web
+    name: venturearena2          # the address becomes https://venturearena2.onrender.com
+    runtime: node
+    plan: 0.5c-512mb             # Render's "Starter". The free plan sleeps after 15 idle minutes, which ends live tables
+    region: oregon
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      # Render asks for this when the Blueprint is applied. Paste the Supabase
+      # "Session pooler" connection string for the arena2_app login. It is a
+      # secret: it is entered in the dashboard and never written in this file.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SCHEMA
+        value: arena2
+      # Render makes a random value. Read it in the dashboard (Environment) to
+      # use `npm run admin`.
+      - key: ADMIN_TOKEN
+        generateValue: true
+      # A playtest copy: keep it out of search engines. Remove this line (or set
+      # it to 0) on the copy that becomes the real site.
+      - key: NOINDEX
+        value: "1"
+      # Added later in the dashboard, when wanted (see README):
+      #   PUBLIC_URL             once a custom domain points here
+      #   RESEND_API_KEY         confirmation and password-reset emails
+      #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PRICE_MEMBER, PRICE_VIP, PRICE_CEO
