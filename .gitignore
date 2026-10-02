@@ -1,14 +1,11 @@
-/node_modules/
-/dist/
-/build/
-/tests/e2e/shots/
+node_modules/
+dist/
+build/
+tests/e2e/shots/
 # Secrets and local data never go in the repository.
 .env
 .env.*
 !.env.example
 *.pem
-# A local data folder or snapshot at the TOP of the project only. The leading
-# slash matters: without it, `data/` also hides src/games/ventureflow/vf/data
-# and src/server/data, which the site cannot be built without.
-/data/
-/arena.json
+arena.json
+data/
