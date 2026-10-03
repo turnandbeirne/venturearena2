@@ -34,9 +34,9 @@ export function AuthProvider({ children }) {
       access,
       allows: (feature) => !!(access && access.features[feature]),
       enterAsGuest: async () => { if (user) return user; const r = await rpc('guest', { ref: localStorage.getItem('va.ref') || undefined }); setUser(r.user); return r.user; },
-      register: async (email, password, displayName) => {
+      register: async (email, password, displayName, birthDate) => {
         const ref = localStorage.getItem('va.ref') || undefined;
-        const r = await rpc('register', { email, password, displayName, ref });
+        const r = await rpc('register', { email, password, displayName, birthDate, ref });
         localStorage.removeItem('va.ref');
         setUser(r.user); return r.user;
       },

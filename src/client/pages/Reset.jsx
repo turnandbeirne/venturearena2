@@ -34,7 +34,7 @@ export default function Reset() {
     <div className="main" style={{ maxWidth: 440, paddingTop: 28 }}>
       {token ? (
         <form className="card pad-lg stack" onSubmit={choose}>
-          <Link to="/" className="brand">VentureArena<small>by VentureMaker</small></Link>
+          <Link to="/" className="brand">Venture<b>Arena</b><small>by VentureMaker{'™'}</small></Link>
           <h1>Choose a new password</h1>
           {err && <div className="error" role="alert">{err}</div>}
           <div><label className="label" htmlFor="rs-pass">New password (8 or more characters)</label><input id="rs-pass" className="input" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></div>
@@ -43,7 +43,7 @@ export default function Reset() {
         </form>
       ) : sent ? (
         <div className="card pad-lg stack">
-          <Link to="/" className="brand">VentureArena<small>by VentureMaker</small></Link>
+          <Link to="/" className="brand">Venture<b>Arena</b><small>by VentureMaker{'™'}</small></Link>
           <h1>{sent.mail ? 'Check your email' : 'Email is not set up here yet'}</h1>
           {sent.mail
             ? <p>If there is an account for <strong>{email}</strong>, a link to choose a new password is on its way. It works once, for one hour.</p>
@@ -52,7 +52,7 @@ export default function Reset() {
         </div>
       ) : (
         <form className="card pad-lg stack" onSubmit={ask}>
-          <Link to="/" className="brand">VentureArena<small>by VentureMaker</small></Link>
+          <Link to="/" className="brand">Venture<b>Arena</b><small>by VentureMaker{'™'}</small></Link>
           <h1>Forgot your password?</h1>
           <p className="small muted">Enter the email you signed up with and we will send you a link to choose a new one.</p>
           {err && <div className="error" role="alert">{err}</div>}

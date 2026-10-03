@@ -1,25 +1,72 @@
 /* VentureArena shell. Phone first: everything is laid out for a 360px screen
-   and widens from there. Game boards size themselves (client/game/hooks.js). */
+   and widens from there. Game boards size themselves (client/game/hooks.js).
+
+   THE LOOK is venturemaker.org's: a cream page, navy ink, white cards with a
+   hairline border, an orange call to action, teal for the second accent, and
+   Inter set heavy for headings. Two sets of colours live here:
+
+   1. THE PAGE (everything outside a game): the semantic tokens below.
+      --bg --surface --surface-2 --ink --ink-soft --rule --accent --accent-ink
+      --teal-ink --ok --warn --tint. Shell classes use ONLY these.
+   2. THE TABLE (.stage, where a game is played): stays dark, like a card
+      table, because the card art and the boards were drawn for it. `.stage`
+      gives the same tokens their dark values, so a button or the chat panel
+      inside a game needs no second set of rules.
+
+   The old names (--navy --gold --cream --muted --line ...) are the table's
+   own palette. Game boards use them, so they keep their values everywhere. */
 :root {
+  /* the table's palette: used by game boards, never by the page */
   --navy: #0b1530; --navy-2: #111d3f; --navy-3: #1a2a55; --line: rgba(255, 255, 255, 0.1);
   --gold: #e8b64a; --gold-2: #f3d27f; --cream: #f6f1e7; --muted: rgba(246, 241, 231, 0.66);
   --good: #5fc27a; --bad: #f08a7c; --teal: #2fb7a6; --violet: #a37cf0;
-  --display: 'Sora', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* the page: venturemaker.org */
+  --vm-navy: #132039; --vm-cream: #f9f5f1; --vm-orange: #f47b25; --vm-teal: #22c3c3;
+  --bg: var(--vm-cream); --surface: #ffffff; --surface-2: #ede7de;
+  --ink: var(--vm-navy); --ink-soft: #54627f; --rule: #d1d6e0;
+  --accent: #e2620c; --accent-2: var(--vm-orange); --on-accent: #ffffff; --accent-ink: #a8480a; --accent-wash: rgba(244, 123, 37, 0.1);
+  --teal-ink: #0b7377; --ok: #17743d; --warn: #b93a26; --warn-wash: rgba(185, 58, 38, 0.08);
+  --tint: rgba(19, 32, 57, 0.05); --tint-2: rgba(19, 32, 57, 0.1);
+  --btn: #ffffff; --btn-hover: #f3ede6; --field: #ffffff; --field-rule: #c3cad8;
+  --shadow: 0 1px 2px rgba(19, 32, 57, 0.06); --radius: 12px;
+  --display: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --tabbar: 62px;
+}
+/* the table: the same tokens, dark */
+.stage {
+  --bg: var(--navy); --surface: var(--navy-2); --surface-2: rgba(255, 255, 255, 0.08);
+  --ink: var(--cream); --ink-soft: var(--muted); --rule: var(--line);
+  --accent: var(--gold); --accent-2: var(--gold-2); --on-accent: #1a1200; --accent-ink: var(--gold); --accent-wash: rgba(232, 182, 74, 0.12);
+  --teal-ink: var(--teal); --ok: var(--good); --warn: var(--bad); --warn-wash: rgba(240, 138, 124, 0.12);
+  --tint: rgba(255, 255, 255, 0.06); --tint-2: rgba(255, 255, 255, 0.14);
+  --btn: rgba(255, 255, 255, 0.08); --btn-hover: rgba(255, 255, 255, 0.14); --field: rgba(255, 255, 255, 0.06); --field-rule: rgba(255, 255, 255, 0.14);
+  --shadow: none; --radius: 16px;
+  --display: 'Sora', 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --tabbar: 58px;
+  color: var(--ink); font-family: var(--sans);
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
-body { margin: 0; background: var(--navy); color: var(--cream); font-family: var(--sans); font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; overflow-wrap: break-word; }
-a { color: var(--gold); text-decoration: none; }
+/* The page is drafting paper: a faint blueprint grid with sketches of building
+   a business (assets/blueprint.svg). It shows in the margins and between the
+   cards; the cards themselves stay plain white so text is always on a clean
+   surface. A game table (.stage) has its own dark background and covers it. */
+body { margin: 0; background: var(--bg) url('./assets/blueprint.svg') 0 0 / 720px 720px; color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; overflow-wrap: break-word; }
+a { color: var(--accent-ink); text-decoration: none; }
 a:hover { text-decoration: underline; }
-h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.15; }
-h1 { font-size: 1.7rem; font-weight: 800; } h2 { font-size: 1.15rem; font-weight: 700; } h3 { font-size: 1rem; font-weight: 700; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.15; letter-spacing: -0.02em; }
+h1 { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.025em; } h2 { font-size: 1.15rem; font-weight: 800; } h3 { font-size: 1rem; font-weight: 700; }
+.stage h1, .stage h2, .stage h3 { letter-spacing: normal; } .stage h1 { font-weight: 800; } .stage h2 { font-weight: 700; }
 p { margin: 0; }
 button { font: inherit; color: inherit; }
 img { max-width: 100%; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--teal-ink); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* On a phone the paper is drawn a little smaller, so more than one sketch is in view. */
+@media (max-width: 899px) { body { background-size: 560px 560px; } }
 
 /* layout */
 .app { min-height: 100%; display: flex; flex-direction: column; }
@@ -33,110 +80,189 @@ img { max-width: 100%; }
 /* minmax(0, 1fr), not 1fr: a bare 1fr track grows to fit a long unbreakable
    name (a 40-character display name pushed the lobby 90px off the screen). */
 .grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
-.muted { color: var(--muted); } .small { font-size: 0.85rem; } .tiny { font-size: 0.75rem; }
-.eyebrow { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-.gold { color: var(--gold); } .good { color: var(--good); } .bad { color: var(--bad); }
+.muted { color: var(--ink-soft); } .small { font-size: 0.85rem; } .tiny { font-size: 0.75rem; }
+/* venturemaker.org's section labels: small, heavy, teal capitals. */
+.eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal-ink); }
+.stage .eyebrow { font-weight: 400; color: var(--ink-soft); }
+.gold { color: var(--accent-ink); } .good { color: var(--ok); } .bad { color: var(--warn); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clamp2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .center { text-align: center; }
 .hide { display: none !important; }
 
 /* tab bar (phones) / side rail (wide) */
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: space-around; background: rgba(17, 29, 63, 0.97); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); backdrop-filter: blur(8px); }
-.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 56px; min-height: 46px; padding: 4px 6px; color: var(--muted); font-size: 0.68rem; text-decoration: none; }
+/* Exactly --tabbar tall (plus the phone's home-bar inset): the page's bottom
+   padding, the toast and the messages window are all placed from that number. */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; box-sizing: border-box; height: calc(var(--tabbar) + env(safe-area-inset-bottom)); display: flex; justify-content: space-around; background: rgba(255, 255, 255, 0.97); border-top: 1px solid var(--rule); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); backdrop-filter: blur(8px); }
+.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 56px; min-height: 46px; padding: 4px 6px; color: var(--ink-soft); font-size: 0.68rem; font-weight: 600; text-decoration: none; }
 .tab:hover { text-decoration: none; }
 .tab svg { width: 22px; height: 22px; }
-.tab.active { color: var(--gold); }
+/* The label stays navy (orange on white is too faint for 11px text); the icon carries the orange. */
+.tab.active { color: var(--ink); font-weight: 800; }
+.tab.active svg { color: var(--accent); }
 .badge { position: absolute; top: -2px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #c2402b; color: #fff; font-size: 0.68rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.brandbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px 0; max-width: 1040px; margin: 0 auto; width: 100%; }
-.brand { font-family: var(--display); font-weight: 800; font-size: 1.15rem; color: var(--gold); text-decoration: none; }
-.brand small { display: block; font-family: var(--sans); font-weight: 400; font-size: 0.62rem; color: var(--muted); letter-spacing: 0.04em; }
+/* The navy strip across the top, as on venturemaker.org. */
+.brandbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; width: 100%; background: var(--vm-navy); color: var(--vm-cream); }
+/* Brand, Feedback, membership and Messages share 360px. Everything is a touch
+   tighter than elsewhere, and if a long membership name still does not fit it
+   is the one that shortens: the page must never scroll sideways.
+   (Bug: adding the Messages button made every page 34px too wide at 360px.) */
+.brandbar > .row { gap: 6px !important; min-width: 0; }
+.brandbar .brand { flex: none; font-size: 1.05rem; }
+.brandbar .btn.sm { padding: 0 9px; font-size: 0.8rem; flex: none; }
+.brandbar a.chip { padding: 4px 10px; font-size: 0.78rem; min-width: 0; flex: 0 1 auto; display: block; line-height: 32px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brandbar .chip { background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); }
+.brandbar a.chip:hover { background: rgba(255, 255, 255, 0.2); }
+.brandbar .btn { background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); border-color: transparent; }
+.brand { font-family: var(--display); font-weight: 900; font-size: 1.15rem; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.brand:hover { text-decoration: none; }
+.brand b { font-weight: 900; color: var(--teal-ink); }
+.brand small { display: block; font-family: var(--sans); font-weight: 500; font-size: 0.62rem; color: var(--ink-soft); letter-spacing: 0.04em; }
+.brandbar .brand, .tabbar .brand { color: #ffffff; }
+.brandbar .brand b, .tabbar .brand b { color: var(--vm-teal); }
+.brandbar .brand small, .tabbar .brand small { color: rgba(249, 245, 241, 0.72); }
 
 /* surfaces */
-.card { background: var(--navy-2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
 .card.pad-lg { padding: 18px; }
-.card.dashed { border-style: dashed; opacity: 0.8; }
-.card.hot { border-color: var(--gold); box-shadow: 0 0 34px rgba(232, 182, 74, 0.18); }
+.card.dashed { border-style: dashed; background: transparent; box-shadow: none; }
+.stage .card.dashed { opacity: 0.8; }
+.card.hot { border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-wash); }
 .card.tap { display: block; color: inherit; text-decoration: none; }
-.card.tap:hover { text-decoration: none; border-color: rgba(232, 182, 74, 0.5); }
+.card.tap:hover { text-decoration: none; border-color: var(--accent-2); }
+/* A navy panel on the cream page: the "band" venturemaker.org uses for its Play section. */
+.card.band { background: var(--vm-navy); border-color: var(--vm-navy); color: var(--vm-cream); --ink: var(--vm-cream); --ink-soft: rgba(249, 245, 241, 0.74); --teal-ink: var(--vm-teal); --accent-ink: #ffb27a; --tint: rgba(255, 255, 255, 0.08); --tint-2: rgba(255, 255, 255, 0.16); --surface-2: rgba(255, 255, 255, 0.12); --rule: rgba(255, 255, 255, 0.16); --btn: rgba(255, 255, 255, 0.12); --btn-hover: rgba(255, 255, 255, 0.2); }
 /* .card.tap is display:block and comes after .row: a tappable row (an Inbox
    connection) lost its flex layout and stacked its avatar above the name. */
 .card.row { display: flex; }
-.notice { border: 1px solid rgba(232, 182, 74, 0.45); background: rgba(232, 182, 74, 0.1); border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; }
-.error { border: 1px solid rgba(240, 138, 124, 0.5); background: rgba(240, 138, 124, 0.12); border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; color: #ffd0c8; }
+.notice { border: 1px solid rgba(244, 123, 37, 0.45); background: var(--accent-wash); border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; }
+.error { border: 1px solid var(--warn); background: var(--warn-wash); border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; color: var(--warn); }
+.stage .notice { border-color: rgba(232, 182, 74, 0.45); }
+.stage .error { border-color: rgba(240, 138, 124, 0.5); color: #ffd0c8; }
 
 /* controls: 44px touch targets; nothing a thumb presses is under 40px (HOUSE-RULES 4.1) */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; font-weight: 650; cursor: pointer; text-decoration: none; background: rgba(255, 255, 255, 0.08); color: var(--cream); transition: background 0.15s; white-space: nowrap; }
-.btn:hover { background: rgba(255, 255, 255, 0.14); text-decoration: none; }
-.btn.gold { background: var(--gold); color: #1a1200; }
-.btn.gold:hover { background: var(--gold-2); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--rule); border-radius: 10px; font-weight: 650; cursor: pointer; text-decoration: none; background: var(--btn); color: var(--ink); transition: background 0.15s; white-space: nowrap; }
+.btn:hover { background: var(--btn-hover); text-decoration: none; }
+/* ".gold" is the primary action. On the page it is venturemaker.org's orange; at the table it is gold. */
+.btn.gold { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.btn.gold:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.stage .btn { border-color: transparent; border-radius: 12px; }
 .btn.sm { min-height: 40px; min-width: 40px; padding: 0 12px; font-size: 0.85rem; border-radius: 10px; }
 .btn.block { width: 100%; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.linkbtn { display: inline-flex; align-items: center; min-height: 40px; background: none; border: 0; padding: 0 2px; color: var(--gold); cursor: pointer; text-decoration: underline; text-align: left; }
-.input, select.input, textarea.input { width: 100%; min-height: 44px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; padding: 10px 12px; color: var(--cream); font: inherit; }
+.linkbtn { display: inline-flex; align-items: center; min-height: 40px; background: none; border: 0; padding: 0 2px; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-align: left; }
+.input, select.input, textarea.input { width: 100%; min-height: 44px; background: var(--field); border: 1px solid var(--field-rule); border-radius: 10px; padding: 10px 12px; color: var(--ink); font: inherit; }
 textarea.input { min-height: 84px; resize: vertical; }
-.input::placeholder { color: rgba(246, 241, 231, 0.6); opacity: 1; }
+.input::placeholder { color: var(--ink-soft); opacity: 1; }
+.stage .input { border-radius: 12px; }
+.stage .input::placeholder { color: rgba(246, 241, 231, 0.6); }
 .input:disabled { opacity: 0.6; }
 select.input option { color: #111; }
-.label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.08); border: 0; color: var(--cream); }
+.label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; background: var(--surface-2); border: 0; color: var(--ink); }
 button.chip, a.chip { min-height: 40px; padding: 4px 14px; font-size: 0.82rem; text-decoration: none; }
 button.chip { cursor: pointer; }
 button.chip:disabled { opacity: 0.45; cursor: not-allowed; }
-a.chip:hover, button.chip:not(.on):not(:disabled):hover { background: rgba(255, 255, 255, 0.14); text-decoration: none; }
-.chip.on { background: var(--gold); color: #1a1200; font-weight: 700; }
-.chip.tier { background: var(--gold); color: #1a1200; font-weight: 700; }
+a.chip:hover, button.chip:not(.on):not(:disabled):hover { background: var(--tint-2); text-decoration: none; }
+/* A chosen option: navy on the page (the orange is kept for the one thing to press next), gold at the table. */
+.chip.on { background: var(--ink); color: var(--bg); font-weight: 700; }
+.stage .chip.on { background: var(--gold); color: #1a1200; }
+.chip.tier { background: var(--teal-ink); color: #ffffff; font-weight: 700; }
+.stage .chip.tier { background: var(--gold); color: #1a1200; }
 .chip .pip { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.choice { display: block; width: 100%; text-align: left; background: var(--navy-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; cursor: pointer; color: inherit; }
-.choice:hover { border-color: rgba(232, 182, 74, 0.6); }
+.choice { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px; cursor: pointer; color: inherit; }
+.choice:hover { border-color: var(--accent-2); }
 .choice:disabled { cursor: default; }
 /* .choice is display:block and comes after .row, so a "choice row" lost its
    flex layout and its chevron fell to a second line. */
 .choice.row { display: flex; }
 .check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
-.check input { width: 22px; height: 22px; flex: none; accent-color: var(--gold); }
+.check input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 summary { cursor: pointer; padding: 10px 0; }
-.choice.on { border-color: var(--gold); background: rgba(232, 182, 74, 0.08); }
-.progress { height: 5px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
-.progress > i { display: block; height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.3s; }
+.choice.on { border-color: var(--accent); background: var(--accent-wash); box-shadow: 0 0 0 1px var(--accent); }
+.progress { height: 6px; background: var(--tint-2); border-radius: 3px; overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--vm-teal); border-radius: 3px; transition: width 0.3s; }
+.stage .progress > i { background: var(--gold); }
 
 /* people */
-.avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.1); flex: none; position: relative; overflow: visible; }
+.avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); flex: none; position: relative; overflow: visible; }
 .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.avatar .dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #3fc463; border: 2px solid var(--navy-2); }
+.avatar .dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #2fae58; border: 2px solid var(--surface); }
 .arch { display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; font-weight: 800; color: #0b1530; flex: none; }
 .pcard { position: relative; }
-.pcard .stat { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 8px 4px; text-align: center; }
-.pcard .stat b { display: block; font-family: var(--display); font-size: 1.1rem; }
-.pcard .stat span { font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.pcard .stat { background: var(--bg); border: 1px solid var(--rule); border-radius: 10px; padding: 8px 4px; text-align: center; }
+.pcard .stat b { display: block; font-family: var(--display); font-weight: 900; font-size: 1.15rem; letter-spacing: -0.02em; }
+.pcard .stat span { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
 .hscroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .hscroll > * { flex: none; }
 
 /* table room */
 .seat { display: flex; align-items: center; gap: 8px; padding: 10px; }
-.seat.turn { border-color: var(--gold); }
+.seat.turn { border-color: var(--accent); }
 .seat .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; }
 .chat { display: flex; flex-direction: column; min-height: 0; }
 .split { display: flex; flex-direction: column; gap: 14px; }
 .table-chat { height: min(60vh, 420px); }
 .chat__log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; padding-right: 4px; min-height: 120px; }
-.chat__sys { color: var(--muted); font-style: italic; }
-.bubble { max-width: 82%; padding: 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.1); }
-.bubble.mine { margin-left: auto; background: var(--gold); color: #1a1200; }
+.chat__sys { color: var(--ink-soft); font-style: italic; }
+.bubble { max-width: 82%; padding: 8px 12px; border-radius: 14px; background: var(--surface-2); overflow-wrap: anywhere; }
+.bubble.mine { margin-left: auto; background: var(--vm-navy); color: var(--vm-cream); }
+.stage .bubble.mine { background: var(--gold); color: #1a1200; }
+
+/* The chat window (components/ChatDock.jsx). z-index 35: above the page and
+   the tab bar, below a game (.stage is 40), which has its own table chat. */
+.chatdock { position: fixed; z-index: 35; left: 0; right: 0; top: 56px; bottom: calc(var(--tabbar) + env(safe-area-inset-bottom)); display: flex; flex-direction: column; background: var(--surface); border-top: 1px solid var(--rule); box-shadow: 0 -8px 30px rgba(19, 32, 57, 0.18); }
+.chatdock__head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--vm-navy); color: var(--vm-cream); }
+.chatdock__head .btn { background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); border-color: transparent; }
+.chatdock__head .btn:hover { background: rgba(255, 255, 255, 0.22); }
+.chatdock__title { font-family: var(--display); font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: #ffffff; margin: 0; }
+a.chatdock__title:hover { text-decoration: underline; }
+.chatdock__people { list-style: none; margin: 0; padding: 4px; flex: 1; min-height: 0; overflow-y: auto; }
+.chatdock__person { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px; border: 0; border-radius: 10px; background: none; color: inherit; text-align: left; cursor: pointer; }
+.chatdock__person:hover { background: var(--tint); }
+.chatdock__name { display: block; font-weight: 700; }
+.chatdock__last { display: block; font-size: 0.8rem; color: var(--ink-soft); }
+.chatdock__last--new { color: var(--ink); font-weight: 700; }
+.chatdock__meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.chatdock__badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #c2402b; color: #ffffff; font-size: 0.68rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.chatdock__empty { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; }
+.chatdock__log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; font-size: 0.92rem; background: var(--bg); }
+.chatdock__send { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--rule); }
+.chatdock__send .input { flex: 1; min-width: 0; }
+.chatdock__note { padding: 10px 12px; border-top: 1px solid var(--rule); }
+.chatdock .error { margin: 8px; }
+.chatdock__launch { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font: inherit; font-weight: 700; }
+/* in the phone's top bar */
+.chatdock__launch--bar { flex: none; width: 40px; height: 40px; padding: 0; overflow: visible; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); }
+/* Inside the button's own box: hung outside the corner it made the button "wider than itself". */
+.chatdock__launch--bar .chatdock__badge { position: absolute; top: 1px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 0.62rem; }
+/* docked in the corner of a wide screen */
+.chatdock__launch--dock { display: none; }
+
+/* game history */
+.histrank { flex: none; width: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: 10px; background: var(--surface-2); line-height: 1.1; }
+.histrank b { font-family: var(--display); font-weight: 900; font-size: 1.05rem; letter-spacing: -0.02em; }
+.histrank span { font-size: 0.65rem; color: var(--ink-soft); }
+.histrank[data-won='1'] { background: var(--accent-wash); box-shadow: inset 0 0 0 1px var(--accent-2); }
+.histrank[data-won='1'] b { color: var(--accent-ink); }
+.histchat { display: flex; flex-direction: column; gap: 8px; max-height: min(60vh, 520px); overflow-y: auto; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--rule); font-size: 0.92rem; }
+.histchat__line { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 1px; }
+.histchat__who { grid-column: 1; font-weight: 700; font-size: 0.8rem; }
+.histchat__at { grid-column: 2; grid-row: 1; font-size: 0.7rem; color: var(--ink-soft); white-space: nowrap; }
+.histchat__body { grid-column: 1 / -1; overflow-wrap: anywhere; }
 
 /* game stage: fills the screen under the header on phones */
-.stage { position: fixed; inset: 0; z-index: 40; background: var(--navy); display: flex; flex-direction: column; }
-.stage__bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--navy-2); }
+.stage { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
+.stage__bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--rule); background: var(--surface); }
 .stage__seats { display: flex; gap: 6px; overflow-x: auto; padding: 6px 10px; }
-.stage__seat { flex: none; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1.5px solid transparent; font-size: 0.8rem; max-width: 46vw; }
-.stage__seat.turn { border-color: var(--gold); background: rgba(232, 182, 74, 0.12); }
+.stage__seat { flex: none; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 999px; background: var(--tint); border: 1.5px solid transparent; font-size: 0.8rem; max-width: 46vw; }
+.stage__seat.turn { border-color: var(--accent); background: var(--accent-wash); }
 .stage__banner { text-align: center; font-size: 0.95rem; padding: 2px 10px 6px; min-height: 28px; }
 /* Table talk is always on screen (GameStage.jsx). The stage's own parts sit
    in .stage__main; on a wide window .stage__chat is docked beside it. */
 .stage__main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .stage--dock { flex-direction: row; }
-.stage__chat { flex: none; width: 320px; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); border-left: 1px solid var(--line); background: var(--navy-2); }
+.stage__chat { flex: none; width: 320px; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); border-left: 1px solid var(--rule); background: var(--surface); }
 .stage__chat-title { font-family: var(--display); font-size: 0.95rem; margin: 0; }
 .stage__chat .chat { flex: 1; min-height: 0; }
 /* On a phone: whose move it is on the left, the latest chat line on the right.
@@ -144,16 +270,18 @@ summary { cursor: pointer; padding: 10px 0; }
 .stage__status { display: flex; align-items: center; gap: 8px; padding: 0 10px 4px; min-height: 40px; }
 .stage__status .stage__banner { flex: 0 1 auto; min-width: 0; max-width: 100%; min-height: 0; padding: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage--dock .stage__status { justify-content: center; }
-.stage__ticker { flex: 1 1 0; min-width: 120px; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--muted); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer; }
+.stage__ticker { flex: 1 1 0; min-width: 120px; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--tint); color: var(--ink-soft); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer; }
 .stage__ticker-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stage__ticker-text b { color: var(--cream); }
-.stage__ticker--new { border-color: var(--gold); color: var(--cream); }
-.stage__ticker-count { flex: none; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--gold); color: #1a1200; font-weight: 800; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; }
+.stage__ticker-text b { color: var(--ink); }
+.stage__ticker--new { border-color: var(--accent); color: var(--ink); }
+.stage__ticker-count { flex: none; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; }
 .stage__board { flex: 1; min-height: 0; padding: 6px 8px 10px; display: flex; }
-.stage__foot { display: flex; align-items: center; gap: 8px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--navy-2); }
-.drawer { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
-.drawer__panel { width: 100%; max-width: 520px; max-height: 82vh; max-height: 82dvh; overscroll-behavior: contain; outline: none; background: var(--navy-2); border-radius: 18px 18px 0 0; border: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar) + 22px); z-index: 80; background: #16203a; border: 1px solid var(--line); color: var(--cream); padding: 9px 16px; border-radius: 999px; font-size: 0.9rem; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4); max-width: 92vw; text-align: center; }
+.stage__foot { display: flex; align-items: center; gap: 8px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--rule); background: var(--surface); }
+.drawer { position: fixed; inset: 0; z-index: 60; background: rgba(19, 32, 57, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.stage .drawer { background: rgba(0, 0, 0, 0.55); }
+.drawer__panel { width: 100%; max-width: 520px; max-height: 82vh; max-height: 82dvh; overscroll-behavior: contain; outline: none; background: var(--surface); color: var(--ink); border-radius: 18px 18px 0 0; border: 1px solid var(--rule); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+/* A toast is the same navy pill everywhere: it floats over both the page and the table. */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar) + 22px); z-index: 80; background: var(--vm-navy); border: 1px solid rgba(255, 255, 255, 0.14); color: var(--vm-cream); padding: 9px 16px; border-radius: 999px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 6px 22px rgba(19, 32, 57, 0.3); max-width: 92vw; text-align: center; }
 .stage .toast { bottom: 76px; }
 
 .confetti { position: absolute; top: -12px; width: 10px; height: 16px; border-radius: 2px; opacity: 0.95; animation: confetti-fall linear 1 forwards; }
@@ -176,10 +304,17 @@ summary { cursor: pointer; padding: 10px 0; }
   .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .app { flex-direction: row; }
-  .main { padding: 28px 28px 40px; }
-  .tabbar { position: sticky; top: 0; bottom: auto; left: auto; right: auto; height: 100vh; width: 200px; flex: none; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 18px 12px; border-top: 0; border-right: 1px solid var(--line); order: -1; }
-  .tab { flex-direction: row; gap: 10px; font-size: 0.95rem; padding: 10px 12px; border-radius: 10px; width: 100%; justify-content: flex-start; }
-  .tab.active { background: rgba(255, 255, 255, 0.08); }
+  .main { padding: 28px 28px 72px; } /* the bottom clears the Messages button docked in the corner */
+  /* The side rail is the navy band: brand at the top, cream links, the orange marks where you are. */
+  .tabbar { position: sticky; top: 0; bottom: auto; left: auto; right: auto; height: 100vh; width: 200px; flex: none; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 18px 12px; border-top: 0; border-right: 0; order: -1; background: var(--vm-navy); backdrop-filter: none; }
+  .tab { flex-direction: row; gap: 10px; font-size: 0.95rem; font-weight: 600; padding: 10px 12px; border-radius: 10px; width: 100%; justify-content: flex-start; color: rgba(249, 245, 241, 0.78); }
+  .tab:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
+  .tab.active { background: rgba(255, 255, 255, 0.12); color: #ffffff; font-weight: 700; }
+  .tab.active svg { color: var(--vm-orange); }
+  .tabbar .chip { background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); }
+  .tabbar a.chip:hover { background: rgba(255, 255, 255, 0.2); }
+  .tabbar .btn { background: rgba(255, 255, 255, 0.12); color: var(--vm-cream); border-color: transparent; }
+  .tabbar .btn:hover { background: rgba(255, 255, 255, 0.2); }
   .badge { position: static; margin-left: auto; }
   .brandbar { display: none; }
   .rail-brand { display: block !important; padding: 0 12px 14px; }
@@ -189,5 +324,8 @@ summary { cursor: pointer; padding: 10px 0; }
   .drawer { align-items: center; }
   .drawer__panel { border-radius: 18px; }
   .toast { bottom: 28px; }
+  .chatdock { left: auto; top: auto; right: 20px; bottom: 0; width: 350px; height: min(520px, calc(100vh - 40px)); border: 1px solid var(--rule); border-bottom: 0; border-radius: 14px 14px 0 0; overflow: hidden; box-shadow: 0 10px 40px rgba(19, 32, 57, 0.22); }
+  .chatdock__launch--dock { display: inline-flex; position: fixed; z-index: 35; right: 20px; bottom: 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px 12px 0 0; background: var(--vm-navy); color: var(--vm-cream); box-shadow: 0 -2px 16px rgba(19, 32, 57, 0.2); }
+  .chatdock__launch--dock:hover { background: #1c2d4f; }
 }
 .rail-brand, .rail-foot { display: none; }

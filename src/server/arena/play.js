@@ -36,7 +36,7 @@ export function eloDeltas(seats) {
 }
 
 export function install(A) {
-  const { users, tables, results, ratings, debriefs, peerFeedback } = A.c;
+  const { users, tables, results, ratings, debriefs, peerFeedback, messages } = A.c;
 
   function ratingRow(userId, gameId) {
     const id = `${userId}:${gameId}`;
@@ -314,6 +314,61 @@ export function install(A) {
     }
     return { games, aWins, bWins };
   }
+
+  // ---- game history: every game a member finished, with what was said at the table -------------------
+  // A member's own history is complete at every tier (HISTORY_DAYS limits
+  // what you may see of OTHER people's). The chat of a finished game can be
+  // re-read by the people who were at that table, players and watchers, and
+  // by nobody else, whatever the table's visibility was.
+  const HISTORY_PAGE = 30;
+  A.rpc.myGames = (me, args) => {
+    const gameId = typeof args.gameId === 'string' && getGame(args.gameId) ? args.gameId : null;
+    const before = Number(args.before) > 0 ? Number(args.before) : Infinity;
+    const all = results.filter((r) => r.userId === me.id).sort((a, b) => b.at - a.at);
+    const rows = all.filter((r) => (!gameId || r.gameId === gameId) && r.at < before);
+    const page = rows.slice(0, HISTORY_PAGE);
+    // One pass over the messages for the whole page, not one per game.
+    const ids = new Set(page.map((r) => r.tableId));
+    const said = {};
+    for (const m of messages.filter((x) => x.tableId && ids.has(x.tableId) && !x.system)) said[m.tableId] = (said[m.tableId] || 0) + 1;
+    const games = {};
+    for (const r of all) { if (!games[r.gameId]) { const g = getGame(r.gameId); games[r.gameId] = { gameId: r.gameId, gameName: g ? g.meta.name : r.gameId, icon: g ? g.meta.icon : '', played: 0, won: 0 }; } games[r.gameId].played += 1; if (r.won) games[r.gameId].won += 1; }
+    return {
+      total: all.length, wins: all.filter((r) => r.won).length,
+      games: Object.values(games).sort((a, b) => b.played - a.played),
+      rows: page.map((r) => {
+        const g = getGame(r.gameId); const t = tables.get(r.tableId);
+        const others = t && t.result ? t.result.summary.filter((s) => s.userId !== me.id).map((s) => ({ name: s.name, avatar: s.avatar, bot: !!s.bot, placement: s.placement })) : [];
+        return {
+          tableId: r.tableId, gameId: r.gameId, gameName: g ? g.meta.name : r.gameId, icon: g ? g.meta.icon : '', at: r.at,
+          placement: r.placement, players: r.players, score: r.score, won: r.won, delta: r.ratingAfter - r.ratingBefore, ratingAfter: r.ratingAfter,
+          takeover: r.takeover || null, others, chatCount: said[r.tableId] || 0,
+        };
+      }),
+      more: rows.length > HISTORY_PAGE,
+    };
+  };
+
+  A.rpc.gameRecord = (me, args) => {
+    const t = tables.get(args.id);
+    if (!t || !t.result || (t.status !== 'finished' && t.status !== 'abandoned')) throw A.err('That game is not in the record.', 404);
+    const mine = results.get(`${t.id}:${me.id}`) || null;
+    if (!mine && !wasAt(t, me.id)) throw A.err('Only the people who were at that table can open its record.', 403);
+    const g = getGame(t.gameId);
+    const rows = results.filter((r) => r.tableId === t.id);
+    return {
+      table: { id: t.id, gameId: t.gameId, gameName: g ? g.meta.name : t.gameId, icon: g ? g.meta.icon : '', startedAt: t.startedAt || null, endedAt: t.endedAt || (mine ? mine.at : null), mode: t.mode, reason: t.result.reason || null, hasDebrief: t.status === 'finished' },
+      standings: [...t.result.summary].sort((a, b) => a.placement - b.placement || a.seat - b.seat).map((s) => {
+        const r = rows.find((x) => x.userId === s.userId); const u = s.userId ? users.get(s.userId) : null;
+        return { seat: s.seat, name: s.name, avatar: s.avatar, bot: !!s.bot, takeover: s.takeover || null, placement: s.placement, score: s.score, you: s.userId === me.id, username: u && !u.isBot && !u.isGuest ? u.username : null, delta: r ? r.ratingAfter - r.ratingBefore : null };
+      }),
+      mine: mine ? { placement: mine.placement, won: mine.won, ratingBefore: mine.ratingBefore, ratingAfter: mine.ratingAfter, score: mine.score, takeover: mine.takeover || null } : null,
+      watched: !mine,
+      chat: messages.filter((m) => m.tableId === t.id).sort((a, b) => a.at - b.at).slice(-500).map(A.chatView),
+      question: questionFor(t, g),
+      answers: debriefs.filter((d) => d.tableId === t.id).sort((a, b) => a.at - b.at).map((d) => { const u = users.get(d.userId); return { userId: d.userId, name: u ? u.displayName : 'Player', avatar: u ? u.avatar : null, answer: d.answer, at: d.at }; }),
+    };
+  };
 
   A.rpc.keepArchetype = (me, args) => {
     if (args.switch && me.suggestedArchetype) me.archetype = me.suggestedArchetype;

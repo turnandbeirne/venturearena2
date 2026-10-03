@@ -1,0 +1,474 @@
+/* ============================================================================
+   Landing screen — the front door
+   ----------------------------------------------------------------------------
+   Wider than the setup screen (which is a single 640px column of form
+   controls): this page has to hold a hero, a three-card pitch, a leaderboard
+   and a scrolling rulebook side by side on a laptop, and stack all of it into
+   one readable column on a phone.
+============================================================================ */
+
+.vf-landing {
+  position: relative;
+  min-height: 100vh;
+  padding: 2rem 1rem 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.vf-landing__inner {
+  width: 100%;
+  max-width: 1040px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  /* Clears the absolutely-positioned volume/music/speed controls in the
+     top-right corner, which would otherwise sit on top of the hero. */
+  padding-top: 3.5rem;
+}
+
+/* Hero --------------------------------------------------------------------- */
+.vf-landing__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.vf-landing__hero-art {
+  width: 100%;
+}
+
+.vf-hero-art {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: var(--vf-border-width-lg) solid var(--vf-border);
+  border-radius: var(--vf-radius-lg);
+  box-shadow: var(--vf-shadow-lg);
+  /* Hero-only palette tokens, so the illustration reskins with the board
+     theme instead of hard-coding its own sky and ground. */
+  --vf-hero-sky-top: #cdeafc;
+  --vf-hero-sky-bottom: #fdf3e3;
+  --vf-hero-ground: #cbe7b4;
+}
+
+.vf-landing__hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+
+.vf-landing__lede {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  color: var(--vf-ink-soft);
+}
+
+.vf-landing__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.vf-landing__cta-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--vf-ink-soft);
+}
+
+.vf-landing__video {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--vf-teal-dark);
+  text-decoration: none;
+  border-bottom: 3px solid var(--vf-teal);
+  padding-bottom: 2px;
+}
+
+.vf-landing__video:hover {
+  color: var(--vf-ink);
+}
+
+/* Pitch cards --------------------------------------------------------------- */
+.vf-landing__pitch {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+
+.vf-landing__pitch-card {
+  padding: 1rem;
+  background: var(--vf-white);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.vf-landing__pitch-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.vf-landing__pitch-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.vf-landing__pitch-body {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--vf-ink-soft);
+}
+
+/* Leaderboard + rulebook ticker --------------------------------------------- */
+.vf-landing__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.vf-landing__board,
+.vf-ticker {
+  padding: 1rem;
+  background: var(--vf-white);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.vf-ticker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.vf-ticker__title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.vf-ticker__scroller {
+  height: 210px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  border-top: 2px dashed var(--vf-cream-deep);
+  padding-top: 0.6rem;
+  /* Not a scroll trap: the panel is focusable and scrollable by hand, and
+     auto-scroll pauses the moment a pointer or focus lands in it. */
+  scroll-behavior: auto;
+}
+
+.vf-ticker__heading {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--vf-teal-dark);
+  margin: 0.7rem 0 0.3rem;
+}
+
+.vf-ticker__heading:first-child {
+  margin-top: 0;
+}
+
+.vf-ticker__line {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--vf-ink-soft);
+}
+
+.vf-ticker__row {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--vf-ink-soft);
+  margin-bottom: 0.4rem;
+}
+
+.vf-ticker__row-label {
+  font-weight: 700;
+  color: var(--vf-ink);
+  flex-shrink: 0;
+}
+
+.vf-landing__empty {
+  /* The two columns are stretched to equal height, so an empty leaderboard
+     would otherwise leave a tall blank card next to a full one. Centring the
+     message in that space makes it read as a deliberate empty state. */
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--vf-ink-soft);
+}
+
+.vf-landing__scores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vf-landing__score-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--vf-cream);
+  border-radius: var(--vf-radius-sm);
+  padding: 0.45rem 0.6rem;
+}
+
+.vf-landing__score-rank {
+  font-size: 0.95rem;
+  font-weight: 700;
+  min-width: 1.6rem;
+}
+
+.vf-landing__score-who {
+  font-weight: 600;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vf-landing__score-value {
+  font-weight: 700;
+  color: var(--vf-teal-dark);
+  font-size: 0.9rem;
+}
+
+/* Footer strip -------------------------------------------------------------- */
+.vf-landing__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+
+.vf-landing__meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--vf-ink-soft);
+}
+
+.vf-landing__meta-item strong {
+  color: var(--vf-ink);
+  font-size: 0.9rem;
+}
+
+.vf-landing__vm {
+  align-self: center;
+}
+
+/* Motion -------------------------------------------------------------------- */
+.vf-hero-sun {
+  transform-origin: 86px 70px;
+  animation: vf-hero-spin 42s linear infinite;
+}
+
+.vf-hero-cloud--a {
+  animation: vf-hero-drift 17s ease-in-out infinite alternate;
+}
+
+.vf-hero-cloud--b {
+  animation: vf-hero-drift 23s ease-in-out infinite alternate-reverse;
+}
+
+.vf-hero-rain {
+  animation: vf-hero-rain 1.5s linear infinite;
+  animation-delay: calc(var(--drop) * 0.35s);
+}
+
+.vf-hero-line {
+  stroke-dasharray: 720;
+  stroke-dashoffset: 720;
+  animation: vf-hero-draw 3.4s ease-out 0.2s forwards;
+}
+
+.vf-hero-node {
+  opacity: 0;
+  animation: vf-hero-node-in 0.5s ease-out forwards;
+  animation-delay: calc(0.9s + var(--node) * 0.6s);
+}
+
+.vf-hero-shop {
+  transform-origin: center bottom;
+  animation: vf-hero-bob 4.5s ease-in-out infinite alternate;
+  animation-delay: calc(var(--shop) * 0.7s);
+}
+
+.vf-hero-coin {
+  animation: vf-hero-bob 3.2s ease-in-out infinite alternate;
+  animation-delay: calc(var(--coin) * 0.45s);
+}
+
+@keyframes vf-hero-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vf-hero-drift {
+  from {
+    transform: translateX(-14px);
+  }
+  to {
+    transform: translateX(14px);
+  }
+}
+
+@keyframes vf-hero-rain {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes vf-hero-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes vf-hero-node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vf-hero-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+/* The hero is decoration behind the buttons — it should never be the reason
+   somebody can't use the page. */
+@media (prefers-reduced-motion: reduce) {
+  .vf-hero-sun,
+  .vf-hero-cloud--a,
+  .vf-hero-cloud--b,
+  .vf-hero-rain,
+  .vf-hero-shop,
+  .vf-hero-coin {
+    animation: none;
+  }
+  .vf-hero-line {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .vf-hero-node {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+/* Responsive ---------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .vf-landing__hero {
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+  }
+
+  .vf-landing__hero-copy {
+    align-items: center;
+    text-align: center;
+  }
+
+  .vf-landing__cta {
+    justify-content: center;
+  }
+
+  .vf-landing__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .vf-landing__inner {
+    padding-top: 5.5rem;
+  }
+
+  .vf-landing__cta .vf-btn {
+    width: 100%;
+  }
+}
+
+/* Build stamp ---------------------------------------------------------------- */
+.vf-landing__build {
+  margin: 0;
+  align-self: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--vf-ink-soft);
+  opacity: 0.65;
+}
+
+/* Stale-save notice ----------------------------------------------------------
+   Shown when localStorage holds a game written by a DIFFERENT build. It is a
+   notice, not an error: nothing has gone wrong, the player just has to choose
+   between an old game's old settings and a fresh one on the current build. */
+.vf-landing__stale {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border-left: 5px solid var(--vf-warm, #f5a623);
+}
+
+.vf-landing__stale-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.vf-landing__stale-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.vf-landing__stale-copy span {
+  font-size: 0.85rem;
+  color: var(--vf-ink-soft);
+}
+
+.vf-landing__stale-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

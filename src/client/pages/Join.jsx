@@ -25,7 +25,7 @@ export default function Join({ watch = false }) {
   if (!err) return <div className="main muted" role="status">Finding your table{'…'}</div>;
   return (
     <div className="main stack" style={{ maxWidth: 520, paddingTop: 28 }}>
-      <div className="brand" style={{ fontSize: '1.4rem' }}>VentureArena<small>by VentureMaker</small></div>
+      <div className="brand" style={{ fontSize: '1.4rem' }}>Venture<b>Arena</b><small>by VentureMaker{'™'}</small></div>
       <div className="card stack" role="alert"><h2>This invite did not work</h2><p className="muted">{err}</p><p className="small muted">The table may have finished or been closed. Ask whoever invited you for a new link, or find a game in the lobby.</p></div>
       <div><button type="button" className="btn gold" onClick={() => nav('/play')}>Go to the lobby</button></div>
     </div>

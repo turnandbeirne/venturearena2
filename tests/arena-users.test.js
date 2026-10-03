@@ -51,7 +51,7 @@ describe('guests and accounts', () => {
     const before = { games: me.stats.games, points: me.points, streak: me.streak };
     expect(before.games).toBe(1);
 
-    const r = await A.call('register', me, { email: 'Ada@Example.com ', password: 'correct horse', displayName: 'Ada' }, { ...ip(), token: g.setSession });
+    const r = await A.call('register', me, { birthDate: '1990-01-01', email: 'Ada@Example.com ', password: 'correct horse', displayName: 'Ada' }, { ...ip(), token: g.setSession });
     expect(r.user.id).toBe(g.user.id);
     // The guest cookie stops working and the account gets a session of its own.
     expect(r.setSession).toMatch(/^[0-9a-f]{64}$/);
@@ -71,7 +71,7 @@ describe('guests and accounts', () => {
 
   it('registering without a session creates an account and a session', async () => {
     const A = arena();
-    const r = await A.call('register', null, { email: 'bo@example.com', password: 'longenough' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'bo@example.com', password: 'longenough' }, ip());
     expect(r.setSession).toBeTruthy();
     expect(r.user.displayName).toBe('bo'); // the email's local part
     expect(A.userForToken(r.setSession).id).toBe(r.user.id);
@@ -80,17 +80,17 @@ describe('guests and accounts', () => {
   it('refuses a duplicate email (any case), a bad email and a short password', async () => {
     const A = arena();
     await member(A, 'Ada');
-    expect((await err(A.call('register', null, { email: 'ADA@example.com', password: 'another one' }, ip()))).message).toMatch(/already an account/);
-    expect((await err(A.call('register', null, { email: 'not-an-email', password: 'another one' }, ip()))).message).toMatch(/email/);
-    expect((await err(A.call('register', null, { email: 'x@example.com', password: 'short' }, ip()))).message).toMatch(/8 characters/);
-    expect((await err(A.call('register', null, { email: 'x@example.com', password: 12345678 }, ip()))).message).toMatch(/8 characters/);
+    expect((await err(A.call('register', null, { birthDate: '1990-01-01', email: 'ADA@example.com', password: 'another one' }, ip()))).message).toMatch(/already an account/);
+    expect((await err(A.call('register', null, { birthDate: '1990-01-01', email: 'not-an-email', password: 'another one' }, ip()))).message).toMatch(/email/);
+    expect((await err(A.call('register', null, { birthDate: '1990-01-01', email: 'x@example.com', password: 'short' }, ip()))).message).toMatch(/8 characters/);
+    expect((await err(A.call('register', null, { birthDate: '1990-01-01', email: 'x@example.com', password: 12345678 }, ip()))).message).toMatch(/8 characters/);
     expect(A.c.users.count((u) => !u.isBot)).toBe(1);
   });
 
   it('usernames are unique: the second "Ada" becomes ada2', async () => {
     const A = arena();
-    await A.call('register', null, { email: 'a1@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
-    const r = await A.call('register', null, { email: 'a2@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
+    await A.call('register', null, { birthDate: '1990-01-01', email: 'a1@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'a2@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
     expect(r.user.username).toBe('ada2');
   });
 
@@ -146,7 +146,7 @@ describe('secrets never leave the server', () => {
     const A = arena();
     const mails = [];
     A.mailer = async (m) => { mails.push(m); };
-    const r = await A.call('register', null, { email: 'ada@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
     const ada = A.user(r.user.id);
     expect(ada.verifyToken).toBeTruthy();
     Object.assign(ada, READY, { phone: '+1 555 0100', city: 'Kansas City', region: 'MO', timezone: 'America/Chicago', stripeCustomerId: 'cus_123', referredBy: 'someone' });
@@ -187,7 +187,7 @@ describe('email verification', () => {
     const A = arena();
     const mails = [];
     A.mailer = async (m) => { mails.push(m); };
-    const r = await A.call('register', null, { email: 'ada@example.com', password: 'correct horse' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse' }, ip());
     const ada = A.user(r.user.id);
     expect(r.user.emailVerified).toBe(false);
     expect(r.user.access.level).toBe('unverified');
@@ -223,7 +223,7 @@ describe('email verification', () => {
 
   it('without a mail provider nobody could ever click a link, so the account is verified at once', async () => {
     const A = arena();
-    const r = await A.call('register', null, { email: 'ada@example.com', password: 'correct horse' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse' }, ip());
     expect(r.user.emailVerified).toBe(true);
     expect(r.user.access.level).toBe('verified');
   });
@@ -231,7 +231,7 @@ describe('email verification', () => {
   it('a mail provider that throws does not fail the registration', async () => {
     const A = arena();
     A.mailer = async () => { throw new Error('provider down'); };
-    const r = await A.call('register', null, { email: 'ada@example.com', password: 'correct horse' }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse' }, ip());
     expect(r.user.isGuest).toBe(false);
     expect(r.user.emailVerified).toBe(false);
   });
@@ -504,7 +504,7 @@ describe('profile completion (survey score) and its bonus', () => {
     expect(r.bonus).toBe(0);
     expect(g.points).toBe(0);
     expect(g.surveyBonus).toBe(0);
-    await A.call('register', g, { email: 'ada@example.com', password: 'correct horse' }, ip());
+    await A.call('register', g, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse' }, ip());
     expect(g.points).toBe(50);
     expect(g.surveyBonus).toBe(1);
   });
@@ -516,7 +516,7 @@ describe('the access ladder', () => {
     A.mailer = async () => {};
     const g = await guest(A);
     expect(A.access(g)).toMatchObject({ tier: 'anonymous', level: 'anonymous', canSeeBios: false, hostLimit: 1 });
-    await A.call('register', g, { email: 'ada@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
+    await A.call('register', g, { birthDate: '1990-01-01', email: 'ada@example.com', password: 'correct horse', displayName: 'Ada' }, ip());
     expect(A.access(g)).toMatchObject({ tier: 'free', level: 'unverified', canSeeBios: false });
     // A complete profile is not enough without a confirmed email...
     Object.assign(g, READY); A.recomputeSurvey(g);
@@ -750,7 +750,7 @@ describe('referral codes', () => {
     const code = A.referralCode(ada);
     await A.call('logInvite', ada, { channel: 'email', contact: 'bob@example.com', name: 'Bob' });
     const before = ada.points;
-    const r = await A.call('register', null, { email: 'bob@example.com', password: 'correct horse', displayName: 'Bob', ref: code.toLowerCase() }, ip());
+    const r = await A.call('register', null, { birthDate: '1990-01-01', email: 'bob@example.com', password: 'correct horse', displayName: 'Bob', ref: code.toLowerCase() }, ip());
     const bob = A.user(r.user.id);
     expect(bob.referredBy).toBe(ada.id);
     expect(ada.points - before).toBe(20);
@@ -798,12 +798,12 @@ describe('referral codes', () => {
     const g = await guest(A);
     A.advance(3 * DAY);
     const before = ada.points;
-    await A.call('register', g, { email: 'late@example.com', password: 'correct horse', displayName: 'Late', ref: code }, ip());
+    await A.call('register', g, { birthDate: '1990-01-01', email: 'late@example.com', password: 'correct horse', displayName: 'Late', ref: code }, ip());
     expect(g.referredBy).toBe(ada.id);
     expect(ada.points - before).toBe(20);
     // ...but a day after registering the window is closed, as for anyone.
     const h = await guest(A);
-    await A.call('register', h, { email: 'later@example.com', password: 'correct horse', displayName: 'Later' }, ip());
+    await A.call('register', h, { birthDate: '1990-01-01', email: 'later@example.com', password: 'correct horse', displayName: 'Later' }, ip());
     A.advance(DAY + 1);
     expect((await A.call('claimReferral', h, { code })).ok).toBe(false);
   });
@@ -814,7 +814,7 @@ describe('referral codes', () => {
     const g = await guest(A);
     await A.call('block', ada, { userId: g.id });
     const before = ada.points;
-    const r = await A.call('register', g, { email: 'g@example.com', password: 'correct horse', displayName: 'Gee', ref: code }, ip());
+    const r = await A.call('register', g, { birthDate: '1990-01-01', email: 'g@example.com', password: 'correct horse', displayName: 'Gee', ref: code }, ip());
     expect(r.user.isGuest).toBe(false);
     expect(g.referredBy).toBe(null);
     expect(ada.points).toBe(before);
@@ -915,8 +915,8 @@ describe('rate limits', () => {
   it('10 registrations an hour per address', async () => {
     const A = arena();
     const req = { ip: '203.0.113.9' };
-    for (let i = 0; i < 10; i++) await err(A.call('register', null, { email: 'bad', password: 'x' }, req));
-    expect((await err(A.call('register', null, { email: 'ok@example.com', password: 'correct horse' }, req))).status).toBe(429);
+    for (let i = 0; i < 10; i++) await err(A.call('register', null, { birthDate: '1990-01-01', email: 'bad', password: 'x' }, req));
+    expect((await err(A.call('register', null, { birthDate: '1990-01-01', email: 'ok@example.com', password: 'correct horse' }, req))).status).toBe(429);
     expect(A.c.users.count((u) => u.email === 'ok@example.com')).toBe(0);
   });
 

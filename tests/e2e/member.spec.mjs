@@ -14,6 +14,13 @@ const LONG_NAME = 'Maximilian Wolfeschlegelsteinhausen-Berg';
 const toast = (page, text) => page.locator('.toast').filter({ hasText: text }).waitFor();
 const score = async (page) => Number(await page.locator('[data-profile-score]').getAttribute('data-profile-score'));
 
+/** Choose an adult's date of birth in the three menus of a sign-up form. */
+async function dob(page, [y, m, d] = ['1990', '04', '17']) {
+  await page.getByLabel('Month of birth').selectOption(m);
+  await page.getByLabel('Day of birth').selectOption(d);
+  await page.getByLabel('Year of birth').selectOption(y);
+}
+
 export default async function member({ baseUrl, browser, check, shots, adminToken }) {
   const ctx1 = await openContext(browser, { viewport: PHONE });
   const p1 = await ctx1.newPage();
@@ -37,6 +44,10 @@ export default async function member({ baseUrl, browser, check, shots, adminToke
     await p1.getByLabel('Display name').first().fill(M1.name);
     await p1.getByLabel('Email').fill(M1.email);
     await p1.getByLabel('Password').fill(M1.password);
+    await check('an account cannot be created until a date of birth is chosen', async () => {
+      if (!(await p1.getByRole('button', { name: 'Create my free account' }).isDisabled())) throw new Error('the button is enabled with no date of birth');
+    });
+    await dob(p1);
     await p1.getByRole('button', { name: 'Create my free account' }).click();
     await check.must('creating the account opens the profile interview', async () => {
       await p1.waitForURL(/\/onboarding$/);
@@ -156,7 +167,7 @@ export default async function member({ baseUrl, browser, check, shots, adminToke
     await p1.getByRole('link', { name: 'Me', exact: true }).click();
     await check.must('Me shows the record kept from the guest game and 60% complete', async () => {
       await p1.locator('[data-profile-score]').waitFor();
-      await p1.locator('[data-history="fourinarow"]').getByRole('link', { name: /Debrief/ }).waitFor();
+      await p1.locator('[data-history="fourinarow"]').getByRole('link', { name: /Record and chat of this/ }).waitFor();
       const s = await score(p1);
       if (s !== 60) throw new Error(`profile is ${s}%`);
     });
@@ -236,6 +247,7 @@ export default async function member({ baseUrl, browser, check, shots, adminToke
     await p2.getByLabel('Display name').fill(M2.name);
     await p2.getByLabel('Email').fill(M2.email);
     await p2.getByLabel(/^Password/).fill(M2.password);
+    await dob(p2);
     await p2.getByRole('button', { name: 'Create account' }).click();
     await check.must('a new visitor can create an account from /signin and skip the interview', async () => {
       await p2.waitForURL(/\/onboarding$/);
@@ -323,12 +335,12 @@ export default async function member({ baseUrl, browser, check, shots, adminToke
       await p2.locator('a.card').filter({ hasText: M1.name }).click();
       await p2.waitForURL(new RegExp(`/inbox/${me1.id}$`));
       await p1.locator('a.card').filter({ hasText: M2.name }).click();
-      await p1.getByLabel('Message').fill('Hello Ben, thanks for answering.');
+      await p1.getByLabel('Message', { exact: true }).fill('Hello Ben, thanks for answering.');
       await p1.getByRole('button', { name: 'Send' }).click();
       await p1.locator('.bubble.mine').filter({ hasText: 'Hello Ben, thanks for answering.' }).waitFor();
       await p2.locator('.bubble:not(.mine)').filter({ hasText: 'Hello Ben, thanks for answering.' }).waitFor();
-      await p2.getByLabel('Message').fill('Glad to. Shall we play first?');
-      await p2.getByLabel('Message').press('Enter');
+      await p2.getByLabel('Message', { exact: true }).fill('Glad to. Shall we play first?');
+      await p2.getByLabel('Message', { exact: true }).press('Enter');
       await p1.locator('.bubble:not(.mine)').filter({ hasText: 'Glad to. Shall we play first?' }).waitFor();
       await shots(p1, 'inbox-thread-360');
     });

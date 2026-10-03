@@ -129,6 +129,10 @@ How to read the "where it lives" column:
 | Skill rank per game (Apprentice, Operator, Shark, Mogul) | `skillRank` in shared/profile.js | Shown on the Debrief and the record. |
 | Operator endpoints: stats, waitlist, reports, feedback | `POST /api/admin/*` in src/server/http.js | No screen; see section 6. |
 | Build checks: every game registered everywhere, bot-versus-bot playout, emoji check | tests/registration.test.js, tests/playout.test.js, scripts/check-emoji.mjs | |
+| The venturemaker.org look | src/client/styles.css (tokens at the top); scripts/build-seo.mjs for the static pages | Cream page, navy ink, orange call to action, teal accent, Inter. Game tables stay dark. HOUSE-RULES section 4, rule 12. |
+| Game history with each game's chat | `myGames`, `gameRecord` in arena/play.js; pages/History.jsx (`/history`, `/history/<table>`) | A member's own history is complete at every tier. A game's chat opens for the people who were at that table and nobody else. |
+| Messages window on every page | `chatList`, `thread`, `markRead` in arena/social.js; components/ChatDock.jsx | Docked in the corner on a wide screen, a sheet from the top bar on a phone. Stays on the same conversation as you move around. Unread counts per conversation (`thread_reads`). Not shown during a game. |
+| Age step: 13 and over, extra care for under-18s | src/shared/age.js; `checkAge`, `confirmAge`, `A.contactOk` in arena/users.js; components/AgeFields.jsx | The date of birth is never stored. An adult and an under-18 connect, message or are introduced only after playing together. Accounts made earlier are asked once. Guests are not asked (see README, known gaps). |
 
 ## 5. Changed on purpose
 

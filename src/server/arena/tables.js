@@ -432,6 +432,7 @@ export function install(A) {
     const u = users.get(m.fromId);
     return { id: m.id, fromId: m.fromId, name: u ? u.displayName : 'Player', avatar: u ? u.avatar : null, body: m.body, at: m.at, system: !!m.system };
   }
+  A.chatView = chatView;
   A.tableSay = (t, fromId, body, system = false) => {
     const m = { id: A.id(), tableId: t.id, fromId, body, at: A.now(), system };
     messages.put(m);

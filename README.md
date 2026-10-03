@@ -235,7 +235,8 @@ src/games/registry.js  the list of games (server side); boards.js is the browser
 src/server/            the server: arena/ (accounts, tables, play, social, matching, community),
                        bots/runner.js, store/ (memory, file, Postgres), http.js, realtime.js, bgio.js
 src/client/            the web app (React)
-src/shared/            tiers.js (the one feature table) and profile.js (survey, archetypes, stages)
+src/shared/            tiers.js (the one feature table), profile.js (survey, archetypes, stages), age.js
+src/client/styles.css  the look: venturemaker.org's colours as tokens at the top; .stage keeps game tables dark
 scripts/               build, SEO pages, emoji check, admin
 tests/                 vitest suites; tests/e2e/ runs in a real browser
 ```
@@ -245,6 +246,8 @@ fails the build if a registration step is missed.
 
 ## Known gaps before a public launch
 
+- **Ages: get legal advice before inviting under-18s.** Accounts ask for a date of birth and refuse under-13s, and an adult and an under-18 cannot contact each other privately until they have played together. That is a sensible floor, not a compliance review. Guests are NOT asked their age (they give no email and cannot message anyone, but they can type in a table's chat). There is no parental consent step, no moderation queue for chat, and the Report button sends a note to the operator rather than hiding anything. An account closed by the age check is kept for the operator to remove: `npm run admin` has no delete command yet.
+- Table chat and direct messages are kept without a time limit, and there is no "delete my messages" or "delete my account" for members yet.
 - No Content-Security-Policy header yet.
 - Login is rate limited per address, not per account; there is no lockout.
 - A member can block someone through the API, but there is no Block button or unblock yet.

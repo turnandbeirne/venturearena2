@@ -15,7 +15,7 @@ const CHALLENGE_TTL_MS = 48 * 3600 * 1000;
 const pairId = (a, b) => [a, b].sort().join(':');
 
 export function install(A) {
-  const { users, connections, messages, introductions, challenges, invites, tables, results, reports } = A.c;
+  const { users, connections, messages, threadReads, introductions, challenges, invites, tables, results, reports } = A.c;
 
   // ---- connections -------------------------------------------------------------------
   const conn = (a, b) => connections.get(pairId(a, b));
@@ -41,6 +41,9 @@ export function install(A) {
   function request(from, to, source, { bypass = false } = {}) {
     if (from.id === to.id) throw A.err('That is you.');
     if (to.isBot || to.isArena) throw A.err('Bots do not take connection requests.');
+    // An adult and an under-18 meet at a game table first (users.js contactOk).
+    // Not bypassed by a referral link: `bypass` is about the connection LIMIT.
+    if (!A.contactOk(from, to)) throw A.err('You can connect with this member after you have played a game together.', 403);
     if (!bypass) roomFor(from);
     const id = pairId(from.id, to.id);
     const c = connections.get(id);
@@ -81,7 +84,20 @@ export function install(A) {
   };
 
   // ---- messages -----------------------------------------------------------------------
-  A.canMessage = (from, to) => !from.isGuest && !to.isBot && !blocked(from.id, to.id) && (accepted(from.id, to.id) || A.allows(from, 'dm_anyone'));
+  A.canMessage = (from, to) => !from.isGuest && !to.isBot && !blocked(from.id, to.id) && A.contactOk(from, to) && (accepted(from.id, to.id) || A.allows(from, 'dm_anyone'));
+
+  // What each member has read, per conversation, so a new message can be
+  // counted (the chat window's badge) without marking individual messages.
+  const dm = (m, a, b) => !m.tableId && ((m.fromId === a && m.toId === b) || (m.fromId === b && m.toId === a));
+  const readAt = (meId, otherId) => { const r = threadReads.get(`${meId}:${otherId}`); return r ? r.at : 0; };
+  const unreadFrom = (meId, otherId) => { const since = readAt(meId, otherId); return messages.count((m) => !m.tableId && m.fromId === otherId && m.toId === meId && m.at > since); };
+  function markRead(me, otherId) {
+    const id = `${me.id}:${otherId}`;
+    const had = unreadFrom(me.id, otherId) > 0;
+    threadReads.put({ id, at: A.now() });
+    // This member's other tabs and devices drop their badge too.
+    if (had) A.emit(`u:${me.id}`, 'inbox', { kind: 'read', withId: otherId });
+  }
 
   A.rpc.sendMessage = (me, args) => {
     const to = A.mustUser(args.toId);
@@ -91,16 +107,47 @@ export function install(A) {
     A.limit(`dm:${me.id}`, 40, 60000);
     const m = { id: A.id(), fromId: me.id, toId: to.id, body, at: A.now() };
     messages.put(m);
+    // Writing a reply means you have read what came before it.
+    threadReads.put({ id: `${me.id}:${to.id}`, at: m.at });
     A.emit(`u:${to.id}`, 'inbox', { kind: 'message', fromId: me.id });
     return { message: m };
   };
   A.rpc.thread = (me, args) => {
     const other = A.mustUser(args.userId);
+    const unread = unreadFrom(me.id, other.id);
+    // Opening a conversation reads it, unless the caller is only peeking (`peek`).
+    if (unread > 0 && !args.peek) markRead(me, other.id);
     return {
       with: A.card(other, me),
       canMessage: A.canMessage(me, other),
-      messages: messages.filter((m) => !m.tableId && ((m.fromId === me.id && m.toId === other.id) || (m.fromId === other.id && m.toId === me.id))).sort((a, b) => a.at - b.at).slice(-200),
+      unread,
+      messages: messages.filter((m) => dm(m, me.id, other.id)).sort((a, b) => a.at - b.at).slice(-200),
     };
+  };
+  A.rpc.markRead = (me, args) => { markRead(me, A.mustUser(args.userId).id); return { ok: true }; };
+
+  /**
+   * The chat window: everyone this member can talk to (connections, plus
+   * anyone who has written to them), most recent conversation first, with
+   * how many messages are waiting.
+   */
+  A.rpc.chatList = (me) => {
+    if (me.isGuest) return { people: [], unread: 0, guest: true };
+    const ids = new Set();
+    for (const c of connections.filter((x) => x.status === 'accepted' && (x.requesterId === me.id || x.addresseeId === me.id))) ids.add(c.requesterId === me.id ? c.addresseeId : c.requesterId);
+    const mine = messages.filter((m) => !m.tableId && m.fromId !== 'arena' && (m.fromId === me.id || m.toId === me.id));
+    for (const m of mine) ids.add(m.fromId === me.id ? m.toId : m.fromId);
+    const people = [];
+    for (const id of ids) {
+      const o = users.get(id);
+      if (!o || o.isArena || o.closed || blocked(me.id, id)) continue;
+      const ours = mine.filter((m) => m.fromId === id || m.toId === id);
+      const last = ours.sort((a, b) => b.at - a.at)[0] || null;
+      const since = readAt(me.id, id);
+      people.push({ card: A.card(o, me), last: last ? { body: last.body, at: last.at, mine: last.fromId === me.id } : null, unread: ours.filter((m) => m.fromId === id && m.at > since).length, canMessage: A.canMessage(me, o) });
+    }
+    people.sort((a, b) => (b.last ? b.last.at : 0) - (a.last ? a.last.at : 0) || (b.card.online - a.card.online) || a.card.displayName.localeCompare(b.card.displayName));
+    return { people, unread: people.reduce((n, p) => n + p.unread, 0) };
   };
 
   A.rpc.inbox = (me) => {
@@ -114,9 +161,9 @@ export function install(A) {
     return {
       notes: messages.filter((m) => m.toId === me.id && m.fromId === 'arena').sort((a, b) => b.at - a.at).slice(0, 20),
       requests: mine.filter((c) => c.status === 'pending' && c.addresseeId === me.id).map((c) => ({ from: A.card(otherOf(c), me), source: c.source, at: c.at })).filter((r) => r.from),
-      connections: mine.filter((c) => c.status === 'accepted').map((c) => { const o = otherOf(c); return o ? { card: A.card(o, me), last: lastWith(o.id) } : null; }).filter(Boolean)
+      connections: mine.filter((c) => c.status === 'accepted').map((c) => { const o = otherOf(c); return o ? { card: A.card(o, me), last: lastWith(o.id), unread: unreadFrom(me.id, o.id) } : null; }).filter(Boolean)
         .sort((a, b) => (b.last ? b.last.at : 0) - (a.last ? a.last.at : 0)),
-      others: [...strangers].map((id) => { const o = users.get(id); return o ? { card: A.card(o, me), last: lastWith(id) } : null; }).filter(Boolean),
+      others: [...strangers].map((id) => { const o = users.get(id); return o ? { card: A.card(o, me), last: lastWith(id), unread: unreadFrom(me.id, id) } : null; }).filter(Boolean),
       introsIn: intros.filter((i) => i.toId === me.id && i.status === 'pending').map(introView),
       introsOut: intros.filter((i) => i.fromId === me.id).slice(0, 20).map(introView),
       challenges: challengeList(me),
@@ -129,6 +176,7 @@ export function install(A) {
     if (!A.canSeeBios(from)) throw A.err('Verify your email and complete your profile to ask for introductions.', 403);
     if (from.id === to.id) throw A.err('That is you.');
     if (blocked(from.id, to.id)) throw A.err('You cannot contact this member.');
+    if (!A.contactOk(from, to)) throw A.err('You can ask this member for an introduction after you have played a game together.', 403);
     if (kind === 'mentor') {
       A.need(from, 'mentor_match', 'Mentor introductions are a Subscriber feature.');
       // Mentors set how many people they will take on a quarter; protect that.
@@ -207,7 +255,10 @@ export function install(A) {
     if (blocked(me.id, to.id)) throw A.err('You cannot challenge this member.');
     const sent = challenges.count((c) => c.fromId === me.id && A.now() - c.at < 86400000);
     if (sent >= CHALLENGE_LIMIT[A.tier(me)]) throw A.err('Daily challenge limit reached. Subscribers have unlimited challenges.', 403);
-    const c = { id: A.id(), fromId: me.id, toId: to.id, gameId, message: clean(args.message, 200) || null, status: 'pending', at: A.now(), expiresAt: A.now() + CHALLENGE_TTL_MS };
+    // A challenge is how two people get to a table, so it is always allowed;
+    // the free-text note is private contact, so it follows the contact rule.
+    const note = A.contactOk(me, to) ? clean(args.message, 200) || null : null;
+    const c = { id: A.id(), fromId: me.id, toId: to.id, gameId, message: note, status: 'pending', at: A.now(), expiresAt: A.now() + CHALLENGE_TTL_MS };
     challenges.put(c);
     A.emit(`u:${to.id}`, 'inbox', { kind: 'challenge' });
     return { challenge: challengeView(c, me) };

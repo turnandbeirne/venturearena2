@@ -255,7 +255,8 @@ export default async function layout({ baseUrl, browser, check, shots }) {
   // A member with a history, a second member and a guest, so no page is measured empty.
   const mctx = await openContext(browser, { viewport: PHONE });
   const octx = await openContext(browser, { viewport: PHONE });
-  let me = null; let other = null; let finishedId = null; let openId = null; let guestUser = null;
+  const fctx = await openContext(browser, { viewport: PHONE });
+  let me = null; let other = null; let friend = null; let finishedId = null; let openId = null; let guestUser = null;
   await check.section('page fixtures', async () => {
     me = (await memberSession(mctx, baseUrl, 'Grace Hopper', { intent: ['peers', 'mentor', 'play'] })).user;
     other = (await memberSession(octx, baseUrl, 'Bartholomew Featherstonehaugh-Cholmondeley'.slice(0, 40), { stage: 'pre_revenue' })).user;
@@ -268,6 +269,15 @@ export default async function layout({ baseUrl, browser, check, shots }) {
     await page.waitForURL(/\/debrief\//, { timeout: 10000 });
     await page.close();
     await rpc(mctx, baseUrl, 'answerDebrief', { id: finishedId, answer: 'I played not to lose, and lost anyway.' });
+    // Something was said at that table, so its record has a chat to show.
+    await rpc(mctx, baseUrl, 'sendChat', { id: finishedId, body: 'Good game. I should have taken the centre column sooner.' });
+    // A connection with a conversation, for the chat window: two messages each way, one of them long.
+    friend = (await memberSession(fctx, baseUrl, 'Ada Lovelace')).user;
+    await rpc(fctx, baseUrl, 'connect', { userId: me.id });
+    await rpc(mctx, baseUrl, 'answerConnection', { userId: friend.id, accept: true });
+    await rpc(fctx, baseUrl, 'sendMessage', { toId: me.id, body: 'That Four in a Row ending was brutal. Rematch tomorrow?' });
+    await rpc(mctx, baseUrl, 'sendMessage', { toId: friend.id, body: 'Yes. Same time.' });
+    await rpc(fctx, baseUrl, 'sendMessage', { toId: me.id, body: 'Also: I read the note you posted about selling before building. I tried it this week with a landing page and three calls, and two of the three said they would pay. Supercalifragilisticexpialidocious-level-relief.' });
     await rpc(mctx, baseUrl, 'replyTopic', { body: 'Sell it before you build it, then build only what was bought.' });
     await rpc(mctx, baseUrl, 'sendFeedback', { kind: 'suggestion', scope: 'arena', body: 'A fixture note for the layout test.', page: '/home' });
     await rpc(mctx, baseUrl, 'postOpportunity', { kind: 'seeking_cofounder', title: 'Technical cofounder for a compiler startup', body: 'I have the customers and the roadmap. Looking for someone who has shipped developer tools before.' });
@@ -292,6 +302,10 @@ export default async function layout({ baseUrl, browser, check, shots }) {
     ['inbox', '/inbox', 'h1', 'member', async (p) => { await p.getByText('Connection requests').waitFor(); }],
     ['inbox-thread', () => `/inbox/${other.id}`, '.chat__log', 'member'],
     ['me', '/me', '[data-profile-score]', 'member', async (p) => { await p.getByText('Arena record').waitFor(); }],
+    ['history', '/history', '[data-history-row]', 'member'],
+    ['history-record', () => `/history/${finishedId}`, '.histchat', 'member', async (p) => { await p.getByText('Good game. I should have taken').waitFor(); }],
+    ['chat-window', '/home', '[data-quiz-option]', 'member', async (p) => { await p.locator('.chatdock__launch--bar').click(); await p.locator('.chatdock__person').first().waitFor(); }],
+    ['chat-conversation', '/play', '[data-game-card]', 'member', async (p) => { await p.locator('.chatdock__launch--bar').click(); await p.locator('.chatdock__person', { hasText: 'Ada Lovelace' }).click(); await p.locator('.chatdock__log .bubble').first().waitFor(); }],
     ['me-identity', '/me', '[data-profile-score]', 'member', async (p) => { await p.getByRole('button', { name: 'Name, avatar and colours' }).click(); await p.getByRole('button', { name: 'Upload a photo' }).waitFor(); }],
     ['me-business', '/me', '[data-profile-score]', 'member', async (p) => { await p.getByRole('button', { name: 'Business profile' }).click(); await p.getByLabel('Industry').waitFor(); }],
     ['me-want', '/me', '[data-profile-score]', 'member', async (p) => { await p.getByRole('button', { name: 'Looking for and offering' }).click(); await p.getByLabel('Goals').waitFor(); }],
@@ -421,6 +435,167 @@ export default async function layout({ baseUrl, browser, check, shots }) {
     });
     await check('error states: nothing unexpected in the console', w.problems.length === 0, w.problems.join(' | '));
     await ctx.close();
+  });
+
+  // ---- the chat window ---------------------------------------------------------------------------------
+  // "A persistent chat window with players I've connected with": it is there
+  // on every page, it stays on the same conversation as you move around, and
+  // a message arrives in it without a reload.
+  await check.section('chat window', async () => {
+    // A member of their own, so the unread count is known whatever ran before.
+    const cctx = await openContext(browser, { viewport: DESKTOP });
+    const chatter = (await memberSession(cctx, baseUrl, 'Chat Tester')).user;
+    await rpc(fctx, baseUrl, 'connect', { userId: chatter.id });
+    await rpc(cctx, baseUrl, 'answerConnection', { userId: friend.id, accept: true });
+    await rpc(fctx, baseUrl, 'sendMessage', { toId: chatter.id, body: 'First message, waiting for you.' });
+    await rpc(fctx, baseUrl, 'sendMessage', { toId: chatter.id, body: 'Averyveryveryveryveryveryveryveryveryveryveryveryveryverylongwordwithnospacesatall' });
+    const page = await cctx.newPage();
+    const w = watch(page);
+    await page.goto(`${baseUrl}/home`);
+    await page.locator('[data-quiz-option]').first().waitFor();
+    await settle(page);
+    const launch = page.locator('.chatdock__launch--dock');
+    await check('wide: a Messages button sits in the bottom right corner of every page, showing what is unread', async () => {
+      await launch.waitFor();
+      const m = await launch.evaluate((el) => { const r = el.getBoundingClientRect(); return { right: Math.round(window.innerWidth - r.right), bottom: Math.round(window.innerHeight - r.bottom), h: Math.round(r.height), label: el.getAttribute('aria-label'), badge: el.querySelector('.chatdock__badge') ? el.querySelector('.chatdock__badge').textContent : null }; });
+      if (m.right < 0 || m.right > 40 || m.bottom !== 0) throw new Error(`at right ${m.right}, bottom ${m.bottom}`);
+      if (m.h < 40) throw new Error(`only ${m.h}px tall`);
+      if (m.badge !== '2' || m.label !== 'Messages, 2 unread') throw new Error(`badge "${m.badge}", label "${m.label}"`);
+    });
+    await check('wide: closed, the button covers nothing you can press at the bottom of a page', async () => {
+      const m = await measurePage(page);
+      if (m.covered.length) throw new Error(m.covered.slice(0, 3).join('; '));
+    });
+    await launch.click();
+    const dock = page.locator('.chatdock');
+    await check('wide: it opens as a window that stays inside the screen and off the side rail', async () => {
+      await dock.waitFor();
+      await page.locator('.chatdock__person').first().waitFor();
+      const m = await page.evaluate(() => { const d = document.querySelector('.chatdock').getBoundingClientRect(); const rail = document.querySelector('.tabbar').getBoundingClientRect(); return { l: d.left, r: d.right, t: d.top, b: d.bottom, w: d.width, h: d.height, railR: rail.right, iw: window.innerWidth, ih: window.innerHeight }; });
+      if (m.l < m.railR || m.r > m.iw || m.t < 0 || m.b > m.ih + 1) throw new Error(JSON.stringify(m));
+      if (m.w < 300 || m.h < 360) throw new Error(`too small to use: ${m.w}x${m.h}`);
+    });
+    await shots(page, 'chat-window-list-1280x800');
+    await page.locator('.chatdock__person', { hasText: 'Ada Lovelace' }).click();
+    await check('wide: a conversation shows both messages; a long unbroken word wraps instead of pushing the window sideways', async () => {
+      await page.locator('.chatdock__log .bubble').nth(1).waitFor();
+      const m = await page.evaluate(() => { const log = document.querySelector('.chatdock__log'); const bubbles = [...log.querySelectorAll('.bubble')].map((b) => b.getBoundingClientRect()); const l = log.getBoundingClientRect(); return { n: bubbles.length, overflow: log.scrollWidth > log.clientWidth + 1, outside: bubbles.filter((b) => b.right > l.right + 1 || b.left < l.left - 1).length }; });
+      if (m.n !== 2 || m.overflow || m.outside) throw new Error(JSON.stringify(m));
+    });
+    await check('wide: reading a conversation clears its unread count for both the window and the server', async () => {
+      const list = await rpc(cctx, baseUrl, 'chatList');
+      if (list.unread !== 0) throw new Error(`the server still counts ${list.unread} unread`);
+    });
+    await check('wide: a message typed here is sent, appears at once, and reaches the other member', async () => {
+      await page.getByLabel('Message Ada Lovelace').fill('Got them both. Talk tomorrow.');
+      await page.keyboard.press('Enter');
+      await page.locator('.chatdock__log .bubble.mine', { hasText: 'Got them both' }).waitFor();
+      const theirs = await rpc(fctx, baseUrl, 'thread', { userId: chatter.id, peek: true });
+      if (theirs.messages[theirs.messages.length - 1].body !== 'Got them both. Talk tomorrow.') throw new Error('the other member did not get it');
+    });
+    await check('wide: a message from the other member arrives in the open window without a reload', async () => {
+      await rpc(fctx, baseUrl, 'sendMessage', { toId: chatter.id, body: 'Live reply, no refresh needed.' });
+      await page.locator('.chatdock__log .bubble', { hasText: 'Live reply, no refresh needed.' }).waitFor({ timeout: 5000 });
+    });
+    await check('wide: the window stays open on the same conversation when you go to another page', async () => {
+      await page.getByRole('link', { name: 'Play', exact: true }).click();
+      await page.locator('[data-game-card]').first().waitFor();
+      await page.locator('.chatdock__log .bubble', { hasText: 'Live reply, no refresh needed.' }).waitFor();
+      await page.getByRole('link', { name: 'People', exact: true }).click();
+      await page.locator('[data-segment]').first().waitFor();
+      if (!(await page.locator('.chatdock__title', { hasText: 'Ada Lovelace' }).isVisible())) throw new Error('the conversation was closed by moving to another page');
+    });
+    await shots(page, 'chat-window-conversation-1280x800');
+    await check('wide: and after a reload', async () => {
+      await page.reload();
+      await page.locator('.chatdock__log .bubble', { hasText: 'Live reply, no refresh needed.' }).waitFor();
+    });
+    await check('wide: Escape closes it; a message that arrives while it is closed is counted on the button and announced', async () => {
+      await page.getByLabel('Message Ada Lovelace').focus();
+      await page.keyboard.press('Escape');
+      await dock.waitFor({ state: 'detached' });
+      await launch.waitFor();
+      if (await launch.locator('.chatdock__badge').count()) throw new Error('a badge is showing with nothing unread');
+      await rpc(fctx, baseUrl, 'sendMessage', { toId: chatter.id, body: 'One more while you were away.' });
+      await launch.locator('.chatdock__badge', { hasText: '1' }).waitFor({ timeout: 5000 });
+      await page.locator('.toast', { hasText: 'New message from Ada Lovelace' }).waitFor({ timeout: 3000 });
+    });
+    await check('wide: it is not on top of a game: the table has its own chat there', async () => {
+      await launch.click(); await dock.waitFor();
+      await page.goto(`${baseUrl}/enter?play=fourinarow`);
+      await page.locator('.fir__col--can').first().waitFor();
+      const m = await page.evaluate(() => { const d = document.querySelector('.chatdock'); const s = document.querySelector('.stage'); if (!d || !s) return { missing: true }; const r = d.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { covered: !d.contains(top), stageChat: !!document.querySelector('.stage__chat') }; });
+      if (m.missing) return; // not rendered at all is fine too
+      if (!m.covered) throw new Error('the messages window is drawn over the game');
+      if (!m.stageChat) throw new Error('the table chat is missing');
+      await rpc(cctx, baseUrl, 'closeMyTables', {}).catch(() => {});
+    });
+    await check('chat window (wide): no console errors or failed requests', w.problems.length === 0, w.problems.join(' | '));
+    await page.close();
+
+    // The same window on a phone: a sheet between the top bar and the tab bar.
+    // (Reopening the window in the last check read everything, so one more arrives.)
+    for (const vp of PHONES) {
+      await rpc(cctx, baseUrl, 'markRead', { userId: friend.id });
+      await rpc(fctx, baseUrl, 'sendMessage', { toId: chatter.id, body: `One for the ${vp.width}px phone.` });
+      const pctx = await openContext(browser, { viewport: vp, cookies: await cookiesOf(cctx) });
+      const p = await pctx.newPage();
+      const pw = watch(p);
+      await p.goto(`${baseUrl}/home`);
+      await p.locator('[data-quiz-option]').first().waitFor();
+      await check(`${vpName(vp)}: the Messages button is in the top bar, big enough to tap, with the unread count`, async () => {
+        const b = p.locator('.chatdock__launch--bar');
+        await b.locator('.chatdock__badge').waitFor({ timeout: 5000 });
+        const m = await b.evaluate((el) => { const r = el.getBoundingClientRect(); return { w: r.width, h: r.height, inside: r.right <= window.innerWidth && r.left >= 0, badge: el.querySelector('.chatdock__badge') ? el.querySelector('.chatdock__badge').textContent : null }; });
+        if (m.w < 40 || m.h < 40 || !m.inside) throw new Error(JSON.stringify(m));
+        if (m.badge !== '1') throw new Error(`badge "${m.badge}", expected 1`);
+        if (await p.locator('.chatdock__launch--dock').isVisible()) throw new Error('the corner button for wide screens is showing on a phone');
+      });
+      await p.locator('.chatdock__launch--bar').click();
+      await p.locator('.chatdock__person', { hasText: 'Ada Lovelace' }).click();
+      await p.locator('.chatdock__log .bubble').first().waitFor();
+      await settle(p);
+      await check(`${vpName(vp)}: the conversation fills the space between the top bar and the tab bar, and covers neither`, async () => {
+        const m = await p.evaluate(() => { const d = document.querySelector('.chatdock').getBoundingClientRect(); const bar = document.querySelector('.brandbar').getBoundingClientRect(); const tabs = document.querySelector('.tabbar').getBoundingClientRect(); const send = document.querySelector('.chatdock__send button').getBoundingClientRect(); const input = document.querySelector('.chatdock__send input').getBoundingClientRect(); return { top: Math.round(d.top), bottom: Math.round(d.bottom), barBottom: Math.round(bar.bottom), tabsTop: Math.round(tabs.top), w: Math.round(d.width), iw: window.innerWidth, sendBottom: Math.round(send.bottom), sendH: Math.round(send.height), inputW: Math.round(input.width), sw: document.documentElement.scrollWidth }; });
+        if (m.top < m.barBottom - 1) throw new Error(`covers the top bar: window top ${m.top}, bar bottom ${m.barBottom}`);
+        if (m.bottom > m.tabsTop + 1) throw new Error(`covers the tab bar: window bottom ${m.bottom}, tabs top ${m.tabsTop}`);
+        if (m.sendBottom > m.tabsTop + 1) throw new Error('the Send button is under the tab bar');
+        if (m.w !== m.iw || m.sw > m.iw) throw new Error(`width ${m.w} of ${m.iw}, page scrollWidth ${m.sw}`);
+        if (m.sendH < 40 || m.inputW < 160) throw new Error(`send ${m.sendH}px tall, input ${m.inputW}px wide`);
+      });
+      await shots(p, `chat-window-conversation-${vpName(vp)}`);
+      await check(`${vpName(vp)}: chat window: no console errors or failed requests`, pw.problems.length === 0, pw.problems.join(' | '));
+      await pctx.close();
+    }
+    await cctx.close();
+  });
+
+  // ---- the age question for an account made before it existed ------------------------------------------
+  await check.section('age question', async () => {
+    for (const vp of [PHONE, DESKTOP]) {
+      const ctx = await openContext(browser, { viewport: vp, cookies: memberCookies });
+      const page = await ctx.newPage();
+      // The server says this member has not been asked yet.
+      await page.route('**/api/rpc/me', async (route) => { const res = await route.fetch(); const body = await res.json(); if (body.user) body.user.needsAge = true; await route.fulfill({ response: res, json: body }); });
+      await page.goto(`${baseUrl}/home`);
+      const gate = page.getByRole('dialog', { name: 'One quick question' });
+      await check(`${vpName(vp)}: a member who has not been asked sees the question on top of the page, and cannot dismiss it`, async () => {
+        await gate.waitFor();
+        await page.keyboard.press('Escape');
+        await page.mouse.click(4, 4);
+        if (!(await gate.isVisible())) throw new Error('Escape or a click outside closed it');
+        const m = await gate.evaluate((el) => { const r = el.getBoundingClientRect(); const selects = [...el.querySelectorAll('select')].map((s) => s.getBoundingClientRect()); return { inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight, selects: selects.length, minH: Math.min(...selects.map((s) => s.height)), minW: Math.min(...selects.map((s) => s.width)), disabled: el.querySelector('button.gold').disabled }; });
+        if (!m.inside) throw new Error('part of the question is off screen');
+        if (m.selects !== 3 || m.minH < 40 || m.minW < 60) throw new Error(JSON.stringify(m));
+        if (!m.disabled) throw new Error('Continue is enabled before a date is chosen');
+      });
+      await check(`${vpName(vp)}: choosing month, day and year enables Continue`, async () => {
+        await page.getByLabel('Month of birth').selectOption('04'); await page.getByLabel('Day of birth').selectOption('17'); await page.getByLabel('Year of birth').selectOption('1990');
+        if (await gate.getByRole('button', { name: 'Continue' }).isDisabled()) throw new Error('still disabled');
+      });
+      await shots(page, `age-question-${vpName(vp)}`);
+      await ctx.close();
+    }
   });
 
   // ---- accessibility basics ------------------------------------------------------------------------

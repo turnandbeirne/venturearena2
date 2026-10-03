@@ -40,7 +40,7 @@ export default function Enter() {
 
   return (
     <div className="main stack-lg" style={{ maxWidth: 640, paddingTop: 28 }}>
-      <div className="between"><div className="brand" style={{ fontSize: '1.4rem' }}>VentureArena<small>by VentureMaker</small></div><Link className="btn sm" to={`/signin${next ? `?next=${encodeURIComponent(next)}` : ''}`}>Sign in</Link></div>
+      <div className="between"><div className="brand" style={{ fontSize: '1.4rem' }}>Venture<b>Arena</b><small>by VentureMaker{'™'}</small></div><Link className="btn sm" to={`/signin${next ? `?next=${encodeURIComponent(next)}` : ''}`}>Sign in</Link></div>
       {from === 'ventureflow' && <div className="notice">Coming from VentureFlow? Enter, pick a name, and open a VentureFlow table to play others live.</div>}
       {from === 'venturemaker' && <div className="notice">Welcome from VentureMaker. Play as a guest with no signup, or add an email later to keep your history and meet other founders.</div>}
       {typeof localStorage !== 'undefined' && localStorage.getItem('va.ref') && <div className="notice">You were invited by a friend. Create a free account and you will be connected automatically.</div>}

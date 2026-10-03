@@ -15,6 +15,7 @@ import {
   ARCHETYPE_IDS, STAGES, INTENTS, OFFERS, INTEREST_TAGS, COLORS, AVATARS, SOCIAL_KEYS, PROMPTS, SCENARIOS,
   scoreCardSort, surveyScore, guestName, isGuestName, surveyBonusTier, SURVEY_BONUS_TOTAL, PROFILE_GATE, arenaRank, POINTS, stageNum,
 } from '../../shared/profile.js';
+import { MIN_AGE, ADULT_AGE, parseBirthDate, ageOn, adultFrom } from '../../shared/age.js';
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_DAYS = 180;
@@ -36,7 +37,7 @@ async function checkPassword(password, pass) {
 const tokenId = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 export function install(A) {
-  const { users, sessions, points, photos } = A.c;
+  const { users, sessions, points, photos, results } = A.c;
 
   // ---- the arena's own account and the house bots -------------------------------
   if (!users.get(ARENA_USER_ID)) {
@@ -81,8 +82,35 @@ export function install(A) {
     const s = sessions.get(tokenId(token));
     if (!s) return null;
     if (A.now() - s.createdAt > SESSION_DAYS * 86400000) { sessions.delete(s.id); return null; }
-    return users.get(s.userId) || null;
+    const u = users.get(s.userId) || null;
+    // An account closed by the age check is signed out everywhere.
+    return u && u.closed ? null : u;
   };
+
+  // ---- age ------------------------------------------------------------------------
+  // Accounts are for people aged 13 and over. The date of birth is used once,
+  // here, and thrown away: an adult's record says only that the age was
+  // checked; an under-18's record also holds the day they turn 18.
+  const TOO_YOUNG = `VentureArena accounts are for people aged ${MIN_AGE} and over.`;
+  /** { adultAt } for an age that may hold an account. Throws for a bad date or an under-13. */
+  function checkAge(value) {
+    const birth = parseBirthDate(value, A.now());
+    if (!birth) throw A.err('Enter your date of birth.');
+    const age = ageOn(birth, A.now());
+    if (age > 120) throw A.err('Check the year of your date of birth.');
+    if (age < MIN_AGE) { const e = A.err(TOO_YOUNG, 403); e.tooYoung = true; throw e; }
+    return { adultAt: age < ADULT_AGE ? adultFrom(birth) : null };
+  }
+  /** Under 18 today? Guests and bots have no age on record and count as adults here. */
+  A.isMinor = (u) => !!u && !!u.adultAt && A.now() < u.adultAt;
+  /**
+   * May these two contact each other privately (connect, message, ask for an
+   * introduction, be suggested to one another)? An adult and an under-18 may
+   * only once they have finished a game at the same table. Two adults, or two
+   * under-18s, always may.
+   */
+  A.contactOk = (a, b) => A.isMinor(a) === A.isMinor(b)
+    || !!results.find((r) => r.userId === a.id && !!results.get(`${r.tableId}:${b.id}`));
 
   // ---- access ---------------------------------------------------------------------
   A.canSeeBios = (u) => !!u && !u.isGuest && u.emailVerified && (u.surveyScore || 0) >= PROFILE_GATE;
@@ -166,8 +194,8 @@ export function install(A) {
 
   /** Everything a member may see of themselves. Never includes secrets. */
   A.selfView = (u) => {
-    const { pass, verifyToken, reset, loc, ...rest } = u; // eslint-disable-line no-unused-vars
-    return { ...rest, photo: photoUrl(u), hasLocation: !!loc, access: A.access(u), card: A.card(u, u) };
+    const { pass, verifyToken, reset, loc, adultAt, ...rest } = u; // eslint-disable-line no-unused-vars
+    return { ...rest, photo: photoUrl(u), hasLocation: !!loc, access: A.access(u), card: A.card(u, u), needsAge: !u.isGuest && !u.isBot && !u.ageCheckedAt, under18: A.isMinor(u) };
   };
 
   // ---- sessions ----------------------------------------------------------------------------
@@ -188,6 +216,8 @@ export function install(A) {
     if (!EMAIL_RE.test(email)) throw A.err('That does not look like an email address.');
     if (password.length < 8) throw A.err('Use a password of at least 8 characters.');
     if (users.find((x) => x.email === email)) throw A.err('There is already an account with that email. Sign in instead.');
+    // Checked BEFORE anything is saved: an under-13's email is never stored.
+    const { adultAt } = checkAge(args.birthDate);
     // A guest upgrades IN PLACE: same id, so tables, rating, streak and
     // connections all carry over. Creating a second user here is the bug
     // that loses a new member's first game.
@@ -196,6 +226,7 @@ export function install(A) {
     u.pass = await hashPassword(password);
     u.isGuest = false;
     u.registeredAt = A.now();
+    u.adultAt = adultAt; u.ageCheckedAt = A.now();
     const name = clean(args.displayName, 40);
     if (name) u.displayName = name;
     else if (isGuestName(u.displayName)) u.displayName = email.split('@')[0].slice(0, 40);
@@ -218,12 +249,31 @@ export function install(A) {
     const email = clean(args.email, 254).toLowerCase();
     const u = users.find((x) => x.email === email);
     if (!u || !(await checkPassword(String(args.password || ''), u.pass))) throw A.err('Email or password is not right.', 401);
+    if (u.closed) throw A.err(`This account is closed. ${TOO_YOUNG}`, 403);
     return { user: A.selfView(u), setSession: startSession(u) };
   };
 
   A.rpc.logout = (me, args, req) => {
     if (req.token) sessions.delete(tokenId(req.token));
     return { clearSession: true };
+  };
+
+  // An account made before the age step existed is asked once, the next time
+  // its owner visits. Under 13: the account is closed and signed out. Its
+  // record is kept for the operator to remove (HOUSE RULE: nothing here
+  // deletes a member's data by itself).
+  A.rpc.confirmAge = (me, args) => {
+    if (me.isGuest) throw A.err('Create a free account first.', 403);
+    if (me.ageCheckedAt) return { user: A.selfView(me) };
+    let adultAt;
+    try { ({ adultAt } = checkAge(args.birthDate)); } catch (e) {
+      if (!e.tooYoung) throw e;
+      me.closed = 'age'; me.closedAt = A.now(); users.put(me);
+      for (const s of sessions.filter((x) => x.userId === me.id)) sessions.delete(s.id);
+      throw A.err(`${TOO_YOUNG} This account has been closed.`, 403);
+    }
+    me.adultAt = adultAt; me.ageCheckedAt = A.now(); users.put(me);
+    return { user: A.selfView(me) };
   };
 
   A.publicRpc.add('me');
@@ -485,8 +535,13 @@ export function install(A) {
     const inv = A.c.invites.filter((i) => i.inviterId === inviter.id && !i.joinedUserId).sort((a, b) => b.at - a.at)[0];
     if (inv) { inv.joinedUserId = u.id; inv.joinedAt = A.now(); A.c.invites.put(inv); }
     A.award(inviter, 'referral', POINTS.referral, { ref: u.id, once: u.id });
-    if (A.hooks.connectRequest) A.hooks.connectRequest(inviter, u, 'referral', { bypass: true });
-    A.notify(inviter.id, `${u.displayName} joined from your invite. You earned ${POINTS.referral} Arena Points and a connection request is waiting for them.`);
+    // The referral still counts, but an adult and an under-18 are not
+    // connected by a link alone: they meet at a table first (contactOk).
+    const mayConnect = A.contactOk(inviter, u);
+    if (mayConnect && A.hooks.connectRequest) A.hooks.connectRequest(inviter, u, 'referral', { bypass: true });
+    A.notify(inviter.id, mayConnect
+      ? `${u.displayName} joined from your invite. You earned ${POINTS.referral} Arena Points and a connection request is waiting for them.`
+      : `${u.displayName} joined from your invite. You earned ${POINTS.referral} Arena Points. Play a game together and you can connect.`);
     return true;
   }
   A.claimReferral = claimReferral;

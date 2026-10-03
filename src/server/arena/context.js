@@ -32,6 +32,7 @@ export function createContext({ store, config = {}, now = () => Date.now(), emit
       sessions: store.col('sessions'),
       tables: store.col('tables'),
       messages: store.col('messages'),
+      threadReads: store.col('thread_reads'),   // `${reader}:${other}` -> when the reader last read that conversation
       results: store.col('results'),
       ratings: store.col('ratings'),
       connections: store.col('connections'),

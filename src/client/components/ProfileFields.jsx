@@ -30,7 +30,7 @@ export function ColorPicker({ value, onChange }) {
       <div role="group" aria-labelledby="pf-colours" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
         {COLORS.map((c) => { const rank = value.indexOf(c.id); return (
           <button key={c.id} type="button" onClick={() => pick(c.id)} aria-label={`${c.name}${rank >= 0 ? `, choice ${rank + 1}` : ''}`} aria-pressed={rank >= 0}
-            style={{ height: 44, padding: 0, borderRadius: 10, border: rank >= 0 ? '3px solid #fff' : '1px solid rgba(255, 255, 255, 0.3)', background: c.hex, cursor: 'pointer', color: '#111', fontWeight: 800 }}>
+            style={{ height: 44, padding: 0, borderRadius: 10, border: rank >= 0 ? '3px solid var(--ink)' : '1px solid var(--rule)', background: c.hex, cursor: 'pointer', color: '#111', fontWeight: 800 }}>
             {rank >= 0 && <span style={{ background: '#fff', borderRadius: '50%', padding: '1px 7px' }}>{rank + 1}</span>}
           </button>); })}
       </div>
@@ -44,7 +44,7 @@ export function IdentityFields({ d, set }) {
     <div className="stack">
       <Field label="Display name"><input className="input" maxLength={40} placeholder="What should people call you?" value={d.displayName} onChange={(e) => set({ displayName: e.target.value })} /></Field>
       <div><span className="label" id="pf-avatar">Avatar</span><div role="group" aria-labelledby="pf-avatar" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
-        {AVATARS.map((a, i) => <button key={a} type="button" aria-label={`Avatar ${i + 1}: ${a}`} aria-pressed={d.avatar === a} onClick={() => set({ avatar: a })} style={{ height: 44, fontSize: 22, padding: 0, borderRadius: 10, border: d.avatar === a ? '2px solid var(--gold)' : '1px solid var(--line)', background: 'rgba(255,255,255,.05)', cursor: 'pointer' }}>{a}</button>)}
+        {AVATARS.map((a, i) => <button key={a} type="button" aria-label={`Avatar ${i + 1}: ${a}`} aria-pressed={d.avatar === a} onClick={() => set({ avatar: a })} style={{ height: 44, fontSize: 22, padding: 0, borderRadius: 10, border: d.avatar === a ? '2px solid var(--accent)' : '1px solid var(--rule)', background: d.avatar === a ? 'var(--accent-wash)' : 'var(--surface)', cursor: 'pointer' }}>{a}</button>)}
       </div></div>
       <div><span className="label" id="pf-colours">Your colours at the table (first choice, then fallbacks)</span><ColorPicker value={d.colorRanks} onChange={(v) => set({ colorRanks: v })} /></div>
     </div>

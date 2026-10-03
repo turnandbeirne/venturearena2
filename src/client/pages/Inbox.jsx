@@ -75,7 +75,7 @@ export default function Inbox() {
       <section className="stack"><div className="eyebrow">Connections</div>
         {box.connections.length === 0 && box.others.length === 0 && <div className="small muted">Connect with someone after a game and they will appear here.{allows('dm_anyone') ? ' As a Subscriber you can also message anyone from their profile.' : ''}</div>}
         {[...box.connections, ...box.others].map((c) => (
-          <Link key={c.card.id} to={`/inbox/${c.card.id}`} className="card row tap"><Avatar p={c.card} size={36} dot={c.card.online} /><div className="grow"><div className="truncate" style={{ fontWeight: 650 }}>{c.card.displayName}</div><div className="tiny muted truncate">{c.last ? c.last.body : 'Say hello'}</div></div>{c.last && <span className="tiny muted">{timeAgo(c.last.at)}</span>}</Link>
+          <Link key={c.card.id} to={`/inbox/${c.card.id}`} className="card row tap"><Avatar p={c.card} size={36} dot={c.card.online} /><div className="grow"><div className="truncate" style={{ fontWeight: 650 }}>{c.card.displayName}</div><div className="tiny muted truncate">{c.last ? c.last.body : 'Say hello'}</div></div>{c.unread > 0 && <span className="chatdock__badge" aria-label={`${c.unread} unread`}>{c.unread}</span>}{c.last && <span className="tiny muted">{timeAgo(c.last.at)}</span>}</Link>
         ))}
       </section>
       {box.notes.length > 0 && <section className="stack"><div className="eyebrow">From the arena</div>{box.notes.map((n) => <div key={n.id} className="card small"><div>{n.body}</div><div className="tiny muted" style={{ marginTop: 4 }}>{timeAgo(n.at)}</div></div>)}</section>}

@@ -63,7 +63,8 @@ export function install(A) {
   }
 
   function candidates(me) {
-    return users.filter((c) => c.id !== me.id && !c.isBot && !c.isGuest && !!c.onboardedAt && !A.areBlocked(me.id, c.id));
+    // Never suggest an adult to an under-18 (or the reverse) unless they have already played together.
+    return users.filter((c) => c.id !== me.id && !c.isBot && !c.isGuest && !!c.onboardedAt && !A.areBlocked(me.id, c.id) && A.contactOk(me, c));
   }
 
   /** All recommendations for a member, strongest first within each type. */
@@ -174,7 +175,7 @@ export function install(A) {
     let pick = recs.find((r) => !seenToday(r.userId));
     let reason = pick ? pick.reason : null; let type = pick ? pick.type : 'playmate'; let id = pick ? pick.userId : null;
     if (!id) {
-      const pool = users.filter((u) => !u.isBot && u.id !== me.id && !u.isGuest && !connections.get([me.id, u.id].sort().join(':')));
+      const pool = users.filter((u) => !u.isBot && u.id !== me.id && !u.isGuest && !u.closed && A.contactOk(me, u) && !connections.get([me.id, u.id].sort().join(':')));
       const fresh = pool.filter((u) => !seenToday(u.id)).sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
       // Nobody new today means nobody, as the comment above promises and the
       // page says ("Nobody new to introduce right now"). (Bug: this fell back

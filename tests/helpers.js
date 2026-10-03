@@ -26,7 +26,7 @@ export async function guest(A, name) {
 
 export async function member(A, name, extra = {}) {
   const u = await guest(A, name);
-  await A.call('register', u, { email: `${name.toLowerCase().replace(/\W+/g, '')}@example.com`, password: 'correct horse', displayName: name }, { ip: `ip-${Math.random()}` });
+  await A.call('register', u, { birthDate: '1990-01-01', email: `${name.toLowerCase().replace(/\W+/g, '')}@example.com`, password: 'correct horse', displayName: name }, { ip: `ip-${Math.random()}` });
   Object.assign(u, extra); A.c.users.put(u);
   A.recomputeSurvey(u);
   return u;

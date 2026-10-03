@@ -53,7 +53,7 @@ const cookieOf = (res) => { const m = /va_s=([0-9a-f]+)/.exec(res.headers.getSet
 async function newGuest() { const ip = `192.0.2.${(visitor += 1)}`; const res = await rpc('guest', {}, { ip }); return { cookie: cookieOf(res), user: (await res.json()).user, ip }; }
 async function newMember(name) {
   const g = await newGuest();
-  const res = await rpc('register', { email: `${name.toLowerCase()}@example.com`, password: 'correct horse', displayName: name }, { cookie: g.cookie, ip: g.ip });
+  const res = await rpc('register', { birthDate: '1990-01-01', email: `${name.toLowerCase()}@example.com`, password: 'correct horse', displayName: name }, { cookie: g.cookie, ip: g.ip });
   expect(res.status, `registering ${name}`).toBe(200);
   // Registering replaces the guest session, so carry the new cookie forward.
   const fresh = (res.headers.getSetCookie ? res.headers.getSetCookie() : []).map((c) => c.split(';')[0]).join('; ');

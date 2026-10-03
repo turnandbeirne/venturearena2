@@ -56,12 +56,13 @@ export default function Home() {
     <div className="stack-lg">
       <div className="card pad-lg stack">
         <div><div className="eyebrow">{greeting}</div><h1>{user.isGuest && /^guest$/i.test(user.displayName) ? 'Welcome, guest' : user.displayName}</h1>
-          <p className="muted">{card.personaLabel ? <>You play like a <b style={{ color: 'var(--cream)' }}>{card.personaLabel}</b>. {PERSONAS[card.personaLabel]}</> : 'Play your first game and the arena will start reading your style.'}</p></div>
+          <p className="muted">{card.personaLabel ? <>You play like a <b style={{ color: 'var(--ink)' }}>{card.personaLabel}</b>. {PERSONAS[card.personaLabel]}</> : 'Play your first game and the arena will start reading your style.'}</p></div>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           <div className="pcard"><div className="stat" data-stat="streak"><b>{checkin ? checkin.streak : user.streak || 0}</b><span>Day streak</span></div></div>
           <div className="pcard"><div className="stat" data-stat="points"><b>{user.points || 0}</b><span title="Arena Points">Points</span></div></div>
           <div className="pcard"><div className="stat" data-stat="rank"><b>{card.rank}</b><span>Rank</span></div></div>
         </div>
+        {user.stats && user.stats.games > 0 && <div><Link className="btn sm" to="/history">Your game history and chats</Link></div>}
       </div>
       {error && <div className="error" role="alert">{error}</div>}
       <AccessNotice />
@@ -97,7 +98,7 @@ export default function Home() {
           : <div className="card small muted">Nobody else is online right now. Play a bot, or challenge someone and they will get it when they are back.</div>}
       </section>
 
-      <div className="card pad-lg stack" style={{ background: 'linear-gradient(135deg, #1a2a55, #111d3f)' }}>
+      <div className="card band pad-lg stack">
         <h2>Get in the game</h2>
         <p className="small muted">Every game here ends with a question worth answering and a person worth knowing. Five to twenty minutes, with friends or bots.</p>
         <Link className="btn gold" to="/play">Pick a game</Link>
@@ -123,7 +124,7 @@ export default function Home() {
             <div className="stack" style={{ gap: 8 }}>
               {daily.quiz.options.map((opt, i) => {
                 const q = daily.quiz; const right = q.answered && i === q.answerIndex; const wrong = q.answered && i === q.myChoice && !q.correct;
-                return <button key={i} type="button" className="choice" data-quiz-option={right ? 'right' : wrong ? 'wrong' : q.answered ? 'other' : 'open'} disabled={q.answered} onClick={() => answer(i)} style={{ borderColor: right ? 'var(--good)' : wrong ? 'var(--bad)' : undefined, opacity: q.answered && !right && !wrong ? 0.7 : 1 }}><b>{'ABCD'[i]}</b> {opt}{right && <span className="good small"> {'✓'} correct answer</span>}{wrong && <span className="bad small"> {'✗'} your answer</span>}</button>;
+                return <button key={i} type="button" className="choice" data-quiz-option={right ? 'right' : wrong ? 'wrong' : q.answered ? 'other' : 'open'} disabled={q.answered} onClick={() => answer(i)} style={{ borderColor: right ? 'var(--ok)' : wrong ? 'var(--warn)' : undefined, opacity: q.answered && !right && !wrong ? 0.7 : 1 }}><b>{'ABCD'[i]}</b> {opt}{right && <span className="good small"> {'✓'} correct answer</span>}{wrong && <span className="bad small"> {'✗'} your answer</span>}</button>;
               })}
             </div>
             {daily.quiz.answered && <p className="small" role="status" data-quiz-result={daily.quiz.correct ? 'correct' : 'incorrect'}><b className={daily.quiz.correct ? 'good' : 'bad'}>{daily.quiz.correct ? 'Correct.' : 'Not quite.'}</b> {daily.quiz.explanation}</p>}

@@ -18,7 +18,7 @@ export function Avatar({ p, size = 40, ring = null, dot = false }) {
 export function ArchBadge({ archetype, size = 28 }) {
   const a = ARCHETYPES[archetype];
   return (
-    <span className="arch" title={a ? a.name : 'Not sorted yet'} style={{ width: size, height: size, fontSize: Math.round(size * 0.55), background: a ? a.color : 'rgba(255,255,255,.12)' }}>
+    <span className="arch" title={a ? a.name : 'Not sorted yet'} style={{ width: size, height: size, fontSize: Math.round(size * 0.55), background: a ? a.color : 'var(--surface-2)' }}>
       {a ? a.glyph : '?'}
     </span>
   );
@@ -130,7 +130,7 @@ export function BioBlock({ p }) {
 }
 
 /** Six-axis play-style radar. Fixed 0-100 scale so two radars compare. */
-export function StyleRadar({ persona, color = '#e8b64a', size = 220 }) {
+export function StyleRadar({ persona, color = '#0b7377', size = 220 }) {
   const c = size / 2; const R = c - 34;
   const val = (d) => (persona && typeof persona[d] === 'number' ? persona[d] : 50);
   const pt = (i, r) => { const ang = -Math.PI / 2 + (i * Math.PI * 2) / 6; return [c + Math.cos(ang) * r, c + Math.sin(ang) * r]; };
@@ -154,14 +154,14 @@ export function PersonaBlock({ card }) {
     <div className="card stack">
       <div><div className="eyebrow">Play style</div><h2>{label}</h2>
         <p className="small muted">{p ? `${PERSONAS[label]} Based on ${p.games} game${p.games === 1 ? '' : 's'}.` : card.personaLabel ? PERSONAS[label] : 'Play a game and the six style dimensions start filling in.'}</p></div>
-      {p ? <div className="center"><StyleRadar persona={p} color={card.colorRanks && card.colorRanks[0] ? colorHex(card.colorRanks[0]) : '#e8b64a'} /></div>
+      {p ? <div className="center"><StyleRadar persona={p} color={card.colorRanks && card.colorRanks[0] ? colorHex(card.colorRanks[0]) : '#0b7377'} /></div>
         : card.personaLabel ? <p className="tiny muted">The full radar is part of play-style profiles for Subscribers.</p> : null}
     </div>
   );
 }
 
 export function Confetti() {
-  const colors = ['#e8b64a', '#2fb7a6', '#a37cf0', '#5fc27a', '#f06c6c', '#ffffff'];
+  const colors = ['#f47b25', '#22c3c3', '#a37cf0', '#5fc27a', '#e8b64a', '#132039'];
   return (
     <div aria-hidden="true" style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 70, overflow: 'hidden' }}>
       {Array.from({ length: 48 }, (_, i) => (

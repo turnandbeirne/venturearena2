@@ -80,7 +80,7 @@ export async function memberSession(ctx, baseUrl, displayName, profile = {}) {
   memberN += 1;
   const email = `${displayName.toLowerCase().replace(/[^a-z0-9]+/g, '')}.${Date.now().toString(36)}${memberN}@example.com`;
   const password = 'correct horse battery';
-  await rpc(ctx, baseUrl, 'register', { email, password, displayName });
+  await rpc(ctx, baseUrl, 'register', { email, password, displayName, birthDate: profile.birthDate || '1990-01-01' });
   await rpc(ctx, baseUrl, 'cardSort', { picks: [0, 1, 2, 0, 1, 2, 0, 1] });
   await rpc(ctx, baseUrl, 'saveProfile', {
     displayName, colorRanks: ['teal', 'plum'], headline: 'Second-time founder, B2B payments', stage: 'pre_revenue', industry: 'fintech',
@@ -211,12 +211,14 @@ export function measurePage(page, { root = 'body', minTap = 40 } = {}) {
     }
 
     // Scrolled to the very bottom, nothing fixed (tab bar, floating buttons)
-    // may sit on top of something a thumb needs.
+    // may sit on top of something a thumb needs. A drawer, and the messages
+    // window once someone has OPENED it (.chatdock), are on top on purpose;
+    // the button that opens it (.chatdock__launch) is not exempt.
     const scroller = document.scrollingElement;
     const before = scroller.scrollTop;
     scroller.scrollTop = scroller.scrollHeight;
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const fixed = [...document.querySelectorAll('body *')].filter((el) => visible(el) && getComputedStyle(el).position === 'fixed' && !el.classList.contains('stage') && !el.classList.contains('drawer') && !el.classList.contains('toast') && getComputedStyle(el).pointerEvents !== 'none');
+    const fixed = [...document.querySelectorAll('body *')].filter((el) => visible(el) && getComputedStyle(el).position === 'fixed' && !el.classList.contains('stage') && !el.classList.contains('drawer') && !el.classList.contains('chatdock') && !el.classList.contains('toast') && getComputedStyle(el).pointerEvents !== 'none');
     for (const f of fixed) {
       const fr = f.getBoundingClientRect();
       for (const t of targets) {

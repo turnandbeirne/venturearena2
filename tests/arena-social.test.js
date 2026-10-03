@@ -105,7 +105,7 @@ describe('connections', () => {
     expect(A.areConnected(a.id, g.id)).toBe(false);
     await A.call('answerConnection', g, { userId: a.id, accept: false }); // a guest may still say no
     await A.call('connect', a, { userId: g.id });
-    await A.call('register', g, { email: 'gus@example.com', password: 'correct horse', displayName: 'Gus' }, { ip: 'x' });
+    await A.call('register', g, { birthDate: '1990-01-01', email: 'gus@example.com', password: 'correct horse', displayName: 'Gus' }, { ip: 'x' });
     await A.call('answerConnection', g, { userId: a.id, accept: true });
     expect(A.areConnected(a.id, g.id)).toBe(true);
   });
@@ -623,5 +623,69 @@ describe('reports', () => {
     expect(second.reportedId).toBe(b.id);
     expect(second.tableId.length).toBeLessThanOrEqual(64);
     expect(JSON.stringify(A.admin.reports()).length).toBeLessThan(1000);
+  });
+});
+
+describe('the chat window', () => {
+  const said = (list) => list.people.map((p) => [p.card.displayName, p.unread, p.last ? p.last.body : null]);
+
+  it('lists everyone you can talk to, newest conversation first, with what is unread', async () => {
+    const A = makeArena();
+    const a = await member(A, 'Alice'); const b = await member(A, 'Bob'); const c = await member(A, 'Cyd'); const d = await member(A, 'Dee', { tier: 'member' });
+    for (const o of [b, c]) { await A.call('connect', a, { userId: o.id }); await A.call('answerConnection', o, { userId: a.id, accept: true }); }
+    // No conversation yet: connections are listed, nothing unread.
+    expect(said(await A.call('chatList', a))).toEqual(expect.arrayContaining([['Bob', 0, null], ['Cyd', 0, null]]));
+    await A.call('sendMessage', b, { toId: a.id, body: 'one' }); A.advance(1000);
+    await A.call('sendMessage', b, { toId: a.id, body: 'two' }); A.advance(1000);
+    await A.call('sendMessage', c, { toId: a.id, body: 'hello from Cyd' }); A.advance(1000);
+    // A Subscriber who is not a connection wrote too: they appear, so the message is not lost.
+    await A.call('sendMessage', d, { toId: a.id, body: 'cold open' }); A.advance(1000);
+    const list = await A.call('chatList', a);
+    expect(said(list)).toEqual([['Dee', 1, 'cold open'], ['Cyd', 1, 'hello from Cyd'], ['Bob', 2, 'two']]);
+    expect(list.unread).toBe(4);
+    expect(list.people.find((p) => p.card.displayName === 'Dee').canMessage).toBe(false); // Alice is not a Subscriber and they are not connected
+    // The sender sees their own last line, marked as theirs, and nothing unread.
+    const bobs = await A.call('chatList', b);
+    expect(bobs.people[0].last).toMatchObject({ body: 'two', mine: true });
+    expect(bobs.unread).toBe(0);
+    // The Inbox page carries the same counts.
+    const box = await A.call('inbox', a);
+    expect(box.connections.map((x) => [x.card.displayName, x.unread])).toEqual([['Cyd', 1], ['Bob', 2]]);
+  });
+
+  it('opening a conversation reads it; peeking does not; replying reads it too', async () => {
+    const A = makeArena();
+    const a = await member(A, 'Alice'); const b = await member(A, 'Bob');
+    await A.call('connect', a, { userId: b.id }); await A.call('answerConnection', b, { userId: a.id, accept: true });
+    await A.call('sendMessage', b, { toId: a.id, body: 'one' }); A.advance(1000);
+    expect((await A.call('thread', a, { userId: b.id, peek: true })).unread).toBe(1);
+    expect((await A.call('chatList', a)).unread).toBe(1);
+    A.events.length = 0;
+    expect((await A.call('thread', a, { userId: b.id })).unread).toBe(1); // what WAS waiting
+    expect((await A.call('chatList', a)).unread).toBe(0);
+    // Alice's other tabs are told, so their badge clears as well.
+    expect(A.events).toContainEqual({ room: `u:${a.id}`, event: 'inbox', payload: { kind: 'read', withId: b.id } });
+    A.advance(1000);
+    await A.call('sendMessage', b, { toId: a.id, body: 'two' }); A.advance(1000);
+    expect((await A.call('chatList', a)).unread).toBe(1);
+    await A.call('sendMessage', a, { toId: b.id, body: 'got it' });
+    expect((await A.call('chatList', a)).unread).toBe(0);
+    await A.call('markRead', b, { userId: a.id });
+    expect((await A.call('chatList', b)).unread).toBe(0);
+  });
+
+  it('leaves out blocked members, table chat and notes from the arena; a guest gets an empty list', async () => {
+    const A = makeArena();
+    const a = await member(A, 'Alice'); const b = await member(A, 'Bob'); const c = await member(A, 'Cyd');
+    for (const o of [b, c]) { await A.call('connect', a, { userId: o.id }); await A.call('answerConnection', o, { userId: a.id, accept: true }); }
+    await A.call('sendMessage', b, { toId: a.id, body: 'hi' });
+    A.notify(a.id, 'A note from the arena');
+    await playOut(A, a, c); // puts table chat and system lines in the same collection
+    await A.call('block', a, { userId: b.id });
+    const list = await A.call('chatList', a);
+    expect(list.people.map((p) => p.card.displayName)).toEqual(['Cyd']);
+    expect(list.unread).toBe(0);
+    const g = await guest(A, 'Gus');
+    expect(await A.call('chatList', g)).toEqual({ people: [], unread: 0, guest: true });
   });
 });

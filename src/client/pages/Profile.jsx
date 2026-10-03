@@ -8,7 +8,7 @@ import { PlayerCard, BioBlock, PersonaBlock, Loading, useAction, useToast } from
 import ChallengeButton from '../components/ChallengeButton.jsx';
 import { ordinal, timeAgo } from '../../shared/profile.js';
 
-export function Record({ data }) {
+export function Record({ data, own = false }) {
   return (
     <>
       <div className="card stack">
@@ -18,12 +18,12 @@ export function Record({ data }) {
         )}
       </div>
       <div className="card stack">
-        <div className="between"><h2>Recent games</h2>{data.historyLimited && <span className="tiny muted">Last 30 days {'·'} <Link to="/membership">full history for Subscribers</Link></span>}</div>
+        <div className="between"><h2>Recent games</h2>{own ? <Link className="btn sm" to="/history">All games and chats</Link> : data.historyLimited && <span className="tiny muted">Last 30 days {'·'} <Link to="/membership">full history for Subscribers</Link></span>}</div>
         {data.recent.length === 0 ? <p className="small muted">No finished games yet.</p> : (
           <div className="stack" style={{ gap: 6 }}>{data.recent.map((h) => (
             <div key={h.tableId} className="row small" data-history={h.gameId}><span className={h.placement === 1 ? 'gold' : 'muted'} style={{ width: 34, flex: 'none' }}>{ordinal(h.placement)}</span>
               <span className="grow"><span className="truncate" style={{ display: 'block', fontWeight: 600 }}>{h.gameName}</span><span className="tiny muted">{h.players} players {'·'} {timeAgo(h.at)}</span></span>
-              <span className={h.delta >= 0 ? 'good' : 'bad'}>{h.delta >= 0 ? '+' : ''}{h.delta}</span><Link to={`/debrief/${h.tableId}`} className="btn sm" aria-label={`Debrief of this ${h.gameName} game`}>Debrief</Link></div>
+              <span className={h.delta >= 0 ? 'good' : 'bad'}>{h.delta >= 0 ? '+' : ''}{h.delta}</span>{own ? <Link to={`/history/${h.tableId}`} className="btn sm" aria-label={`Record and chat of this ${h.gameName} game`}>Open</Link> : <Link to={`/debrief/${h.tableId}`} className="btn sm" aria-label={`Debrief of this ${h.gameName} game`}>Debrief</Link>}</div>
           ))}</div>
         )}
       </div>

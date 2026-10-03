@@ -7,6 +7,7 @@ import { PlayerCard, BioBlock, PersonaBlock, Loading, useAction, useToast } from
 import InvitePanel from '../components/InvitePanel.jsx';
 import { IdentityFields, BusinessFields, WantFields, ContactFields, CardSort, draftFrom, draftToArgs } from '../components/ProfileFields.jsx';
 import { Record } from './Profile.jsx';
+import { BirthDateField, rememberTooYoung, tooYoungHere, TOO_YOUNG_TEXT } from '../components/AgeFields.jsx';
 import { ARCHETYPES, POINT_LABELS, SURVEY_PARTS, timeAgo } from '../../shared/profile.js';
 
 // Shrink a photo in the browser so the server stores a few kilobytes.
@@ -33,6 +34,7 @@ export default function Me() {
   const [record, setRecord] = useState(null);
   const [points, setPoints] = useState(null);
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
+  const [birthDate, setBirthDate] = useState(''); const [blocked, setBlocked] = useState(tooYoungHere);
   const { error, busy, run } = useAction();
   const fileRef = useRef(null);
 
@@ -62,12 +64,14 @@ export default function Me() {
       <PlayerCard p={user.card} />
 
       {user.isGuest && (
-        <form className="card pad-lg stack hot" onSubmit={(e) => { e.preventDefault(); run(async () => { await register(email, password, d.displayName); nav('/onboarding'); }); }}>
+        <form className="card pad-lg stack hot" onSubmit={(e) => { e.preventDefault(); run(async () => { try { await register(email, password, d.displayName, birthDate); } catch (err) { rememberTooYoung(err); setBlocked(tooYoungHere()); throw err; } nav('/onboarding'); }); }}>
           <div><h2>Keep your progress</h2><p className="small muted">You are a guest. Add an email and password to turn this into a free account: your history, streak and points stay with you, and you get a player card, connections and matches.</p></div>
           <input className="input" maxLength={40} placeholder="Display name" value={d.displayName} onChange={(e) => set({ displayName: e.target.value })} aria-label="Display name" />
           <input className="input" type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" aria-label="Email" />
           <input className="input" type="password" required minLength={8} placeholder="Password (8 or more characters)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" aria-label="Password" />
-          <button className="btn gold" disabled={busy}>Create my free account</button>
+          <BirthDateField value={birthDate} onChange={setBirthDate} idPrefix="me-dob" />
+          {blocked && <div className="notice" role="alert">{TOO_YOUNG_TEXT}</div>}
+          <button className="btn gold" disabled={busy || blocked || !birthDate}>Create my free account</button>
         </form>
       )}
 
@@ -104,7 +108,7 @@ export default function Me() {
 
       <BioBlock p={user.card} />
       <PersonaBlock card={user.card} />
-      {record ? <Record data={record} /> : <Loading what="Loading your record" />}
+      {record ? <Record data={record} own /> : <Loading what="Loading your record" />}
 
       {!user.isGuest && <InvitePanel showHistory />}
 

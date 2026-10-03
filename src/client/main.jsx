@@ -1,6 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+// Inter is the page's typeface (venturemaker.org's). Sora stays for the game
+// tables: the card frames were drawn around it.
+import '@fontsource-variable/inter/wght.css';
 import '@fontsource/sora/700.css';
 import '@fontsource/sora/800.css';
 import './styles.css';

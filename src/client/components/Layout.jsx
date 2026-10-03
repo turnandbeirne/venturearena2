@@ -8,6 +8,8 @@ import { rpc } from '../api.js';
 import { useEvent } from '../realtime.js';
 import { Loading, useToast } from './ui.jsx';
 import FeedbackButton from './FeedbackButton.jsx';
+import { AgeGate } from './AgeFields.jsx';
+import { useChat, ChatLauncher, ChatWindow } from './ChatDock.jsx';
 import { TIER_INFO } from '../../shared/tiers.js';
 
 const ICONS = {
@@ -40,21 +42,32 @@ export default function Layout() {
   useEvent('yourTurn', (p) => { if (!loc.pathname.startsWith(`/t/${p.tableId}`)) toast('It is your move at one of your tables'); });
 
   if (loading || !user) return <Loading what="Entering the arena" />;
+  return <Shell user={user} unread={unread} />;
+}
+
+// Split from Layout so the chat's hooks only run once there is a member.
+function Shell({ user, unread }) {
+  const loc = useLocation();
+  const chat = useChat(user);
   const inGame = loc.pathname.startsWith('/t/');
   const tierName = TIER_INFO[user.access.tier] ? TIER_INFO[user.access.tier].name : 'Guest';
 
   return (
     <div className="app">
       <header className="brandbar">
-        <Link to="/home" className="brand">VentureArena<small>by VentureMaker</small></Link>
+        <Link to="/home" className="brand">Venture<b>Arena</b><small>by VentureMaker{'™'}</small></Link>
         <div className="row" style={{ gap: 8 }}>
           {!inGame && <FeedbackButton />}
           <Link to="/membership" className="chip" aria-label={`Membership: ${tierName}`}>{tierName}</Link>
+          <ChatLauncher chat={chat} variant="bar" />
         </div>
       </header>
       <main className="main"><Outlet /></main>
+      <ChatLauncher chat={chat} variant="dock" />
+      <ChatWindow chat={chat} />
+      {user.needsAge && <AgeGate />}
       <nav className="tabbar" aria-label="Main">
-        <Link to="/home" className="brand rail-brand">VentureArena<small>by VentureMaker</small></Link>
+        <Link to="/home" className="brand rail-brand">Venture<b>Arena</b><small>by VentureMaker{'™'}</small></Link>
         {TABS.map(([key, label, to]) => (
           <NavLink key={key} to={to} className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[key]}</svg>

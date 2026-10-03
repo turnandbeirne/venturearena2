@@ -15,6 +15,7 @@ const Inbox = lazy(() => import('./pages/Inbox.jsx'));
 const Me = lazy(() => import('./pages/Me.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
+const History = lazy(() => import('./pages/History.jsx'));
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
 const SignIn = lazy(() => import('./pages/SignIn.jsx'));
 const Verify = lazy(() => import('./pages/Verify.jsx'));
@@ -41,6 +42,8 @@ export default function App() {
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/inbox/:userId" element={<Inbox />} />
           <Route path="/me" element={<Me />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/history/:id" element={<History />} />
           <Route path="/p/:username" element={<Profile />} />
           <Route path="/membership" element={<Membership />} />
         </Route>
