@@ -8,6 +8,7 @@ import { useAuth } from '../auth.jsx';
 import { useEvent, localEvent } from '../realtime.js';
 import { Avatar, Loading, useAction } from '../components/ui.jsx';
 import { timeAgo } from '../../shared/profile.js';
+import { TableInvitations } from '../components/TableInvites.jsx';
 
 export default function Inbox() {
   const { userId } = useParams();
@@ -58,6 +59,7 @@ export default function Inbox() {
     <div className="stack-lg" style={{ maxWidth: 680 }}>
       <h1>Inbox</h1>
       {error && <div className="error" role="alert">{error}</div>}
+      <TableInvitations invites={box.tableInvites} onChange={load} title="Table invitations" />
       {pendingChallenges.length > 0 && <section className="stack"><div className="eyebrow">Challenges</div>{pendingChallenges.map((c) => (
         <div key={c.id} className="card hot stack"><div className="row"><Avatar p={c.from} size={32} /><div className="grow small"><b>{c.from.displayName}</b> challenged you to {c.gameName}{c.message ? <div className="muted"><i>{'“'}{c.message}{'”'}</i></div> : null}</div></div>
           <div className="row-wrap"><button className="btn gold sm" onClick={() => run(async () => { const r = await rpc('answerChallenge', { id: c.id, accept: true }); nav(`/t/${r.tableId}`); })}>Accept</button><button className="btn sm" onClick={() => run(async () => { await rpc('answerChallenge', { id: c.id, accept: false }); answered(); })}>Decline</button></div></div>

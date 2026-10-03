@@ -10,6 +10,21 @@
 // playerView), never the full state, so a bot cannot peek at a hidden hand.
 import { getGame } from '../../games/registry.js';
 import { actingSeats } from '../../games/kit.js';
+import { paceFactor } from '../../shared/pace.js';
+
+/**
+ * How long a bot waits before it acts.
+ *   think  a human-feeling pause; a bot only answering "no objection" barely pauses
+ *   hold   what the game says the last event deserves on screen (pauseAfter)
+ * The longer of the two, stretched by the table's pace. A quick answer with
+ * nothing to hold for is not stretched: slowing the pace must not turn five
+ * "no objection"s into five pauses.
+ */
+export function botDelay({ watched, reacting, lo, hi, hold = 0, pace, rand = Math.random }) {
+  if (!watched) return 0;
+  const think = reacting ? Math.min(lo, 150) + rand() * 120 : lo + rand() * (hi - lo);
+  return Math.max(think, hold) * (reacting && !hold ? 1 : paceFactor(pace));
+}
 
 export function install(A) {
   const timers = new Map();   // matchID -> { timer, stateID }
@@ -50,7 +65,15 @@ export function install(A) {
       // about on stage. (Bug: five bots each taking a full think-pause to say
       // "no objection" made every card played in VentureBoom cost four seconds.)
       const reacting = Array.isArray(G.waiting) && G.waiting.length > 0;
-      const delay = !watched ? 0 : reacting ? Math.min(lo, 150) + Math.random() * 120 : lo + Math.random() * (hi - lo);
+      // A game may say how long what just happened deserves on screen before
+      // anything else does (pauseAfter). (Bug: three bots in a row each played
+      // a card, answered each other and drew inside two seconds; the person
+      // at the table saw the cards change and could not tell what had been
+      // done to them.) The table's pace stretches both pauses; with nobody
+      // watching there is no pause at all.
+      let hold = 0;
+      try { hold = g.pauseAfter ? Number(g.pauseAfter(G)) || 0 : 0; } catch { hold = 0; }
+      const delay = botDelay({ watched, reacting, lo, hi, hold, pace: t.pace });
       schedule(t, stateID, delay, async () => {
         const now = A.bgio.state(t.id);
         if (!now || now._stateID !== stateID || now.ctx.gameover !== undefined) return;
@@ -70,7 +93,10 @@ export function install(A) {
       // With nobody left to watch, pauses meant for people are skipped. A chore
       // marked `exact` is a real deadline (a turn clock) and always keeps its time.
       // (Bug: fired early, a clock's END_TURN was refused and counted as a strike.)
-      const delay = watched || chore.exact ? (chore.afterMs || 0) : Math.min(chore.afterMs || 0, 120);
+      // The table's pace stretches a pause meant for people (time to answer,
+      // time to read the round's summary); the game's board shows the same
+      // countdown (shared/pace.js). An exact deadline is never stretched.
+      const delay = chore.exact ? (chore.afterMs || 0) : watched ? (chore.afterMs || 0) * paceFactor(t.pace) : Math.min(chore.afterMs || 0, 120);
       schedule(t, stateID, delay, async () => {
         const now = A.bgio.state(t.id);
         if (!now || now._stateID !== stateID || now.ctx.gameover !== undefined) return;

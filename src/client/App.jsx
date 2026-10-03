@@ -16,6 +16,8 @@ const Me = lazy(() => import('./pages/Me.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const Membership = lazy(() => import('./pages/Membership.jsx'));
 const History = lazy(() => import('./pages/History.jsx'));
+const Guides = lazy(() => import('./pages/Guides.jsx'));
+const GameKeyPage = lazy(() => import('./pages/GameKeyPage.jsx'));
 const Onboarding = lazy(() => import('./pages/Onboarding.jsx'));
 const SignIn = lazy(() => import('./pages/SignIn.jsx'));
 const Verify = lazy(() => import('./pages/Verify.jsx'));
@@ -42,8 +44,11 @@ export default function App() {
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/inbox/:userId" element={<Inbox />} />
           <Route path="/me" element={<Me />} />
+          <Route path="/guides" element={<Guides />} />
+          <Route path="/guides/:id" element={<Guides />} />
           <Route path="/history" element={<History />} />
           <Route path="/history/:id" element={<History />} />
+          <Route path="/key/:gameId" element={<GameKeyPage />} />
           <Route path="/p/:username" element={<Profile />} />
           <Route path="/membership" element={<Membership />} />
         </Route>

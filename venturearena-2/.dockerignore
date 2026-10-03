@@ -1,7 +1,0 @@
-node_modules
-dist
-build
-tests/e2e/shots
-.env
-.env.*
-.git

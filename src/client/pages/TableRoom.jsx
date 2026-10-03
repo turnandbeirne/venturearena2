@@ -10,6 +10,7 @@ import { loadGameClient } from '../../games/boards.js';
 import { Avatar, ArchBadge, RepShield, Loading, useAction, useToast, stageLabel } from '../components/ui.jsx';
 import ChatPanel from '../components/ChatPanel.jsx';
 import InvitePanel from '../components/InvitePanel.jsx';
+import { InviteConnections } from '../components/TableInvites.jsx';
 import GameStage from '../game/GameStage.jsx';
 
 export default function TableRoom() {
@@ -174,7 +175,8 @@ export default function TableRoom() {
         )}
         {Settings && <Settings settings={table.settings} isHost={isHost} locked={false} humans={players.length} maxSeats={table.maxSeats} canCustomize={allows('custom_settings')} onChange={saveSettings} onSuggest={me.role ? (text) => send(`\u{1F4A1} ${text}`) : undefined} />}
 
-        <InvitePanel compact title="Invite someone to this table" tableCode={table.inviteCode} gameName={game.name} />
+        {me.role && <InviteConnections tableId={table.id} gameName={game.name} />}
+        <InvitePanel compact title="Or invite anyone with a link" tableCode={table.inviteCode} gameName={game.name} />
       </div>
 
       <div className="card chat table-chat">

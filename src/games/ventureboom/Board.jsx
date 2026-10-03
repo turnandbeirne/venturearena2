@@ -2,13 +2,16 @@
 // (legalActions, selectionActions, isLegal): the board never decides legality.
 // It receives the stripped view for its seat, so it cannot show a card that
 // seat is not allowed to know. Spectators (playerID null) get the public table.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   legalActions, selectionActions, exitOptions, exitValue, isBetweenRounds,
   CARD, BY_KEY, SETS, SET_IDS, TYPES, DYNAMICS, WORDMARK, MAKER_LINE, HOME_LINK,
   EXIT_NAMES, COMBO_NAMES, SURVIVAL_BONUS,
 } from './rules.js';
-import { useFit, useLogFeed, useToast } from '../../client/game/hooks.js';
+import { useFit, useLogFeed, useToast, useAnnouncer, useChangedAt } from '../../client/game/hooks.js';
+import { Countdown } from '../../client/game/clock.jsx';
+import { PACES, PACE_IDS, paceOf, paceFactor } from '../../shared/pace.js';
+import { describe, explain, holdOf, SHOWN_BY_PANEL, WINDOWS } from './info.js';
 import { fitHand } from './hand-layout.js';
 import { artFor } from './art.js';
 import { createSounds, soundFor } from './sounds.js';
@@ -99,8 +102,15 @@ function CardFace({ card, selected = false, fresh = null, have = null, onTap, on
   return <button type="button" key={fresh || 'card'} className={cls} style={style} aria-pressed={selected} aria-label={label || card.name} {...press}>{body}</button>;
 }
 
+// Opens the table's Key at one entry (GameStage's shell.openInfo). Null where
+// there is no table around the board (the workbench): the links then fall
+// back to the card's page on venturemaker.org.
+const KeyCtx = createContext(null);
+
 /** The small "?" in a card's description: the real founder, business move or startup event behind it. */
 function RealStory({ card }) {
+  const openKey = useContext(KeyCtx);
+  if (openKey) return <button type="button" className="vb__q" title="The real-world story" aria-label={`The real-world story behind ${card.name}`} onClick={(e) => { e.stopPropagation(); openKey(card.key); }}>?</button>;
   return (
     <a className="vb__q" href={card.link} target="_blank" rel="noopener noreferrer" title="The real-world story" aria-label={`The real-world story behind ${card.name} (opens in a new tab)`}>?</a>
   );
@@ -173,7 +183,7 @@ function Sheet({ title, onClose, children, locked = false }) {
   );
 }
 
-export default function Board({ G, moves, playerID, seats }) {
+export default function Board({ G, moves, playerID, seats, shell, table }) {
   const wrap = useRef(null);
   // The board is laid out on a 12 x 17 grid of the space it is given; every
   // card and font size derives from one cell, so it fits a phone and a laptop.
@@ -358,37 +368,26 @@ export default function Board({ G, moves, playerID, seats }) {
   const actLabel = (a) => (a.move === 'exit' ? `${EXIT_NAMES[a.kind]} +${money(a.value)}` : a.move === 'play' ? `Play ${TYPES[a.kind].label}` : COMBO_NAMES[a.kind]);
 
   // --- the story so far, in the table's words ---------------------------------
-  const say = (e) => {
-    switch (e.t) {
-      case 'deal': return `Quarter ${e.round} dealt. ${nm(e.first)} to start.${e.hot ? ' Hot Market: Exits pay double.' : ''}`;
-      case 'play': return `${nm(e.p)} played ${cardName(e.k)}${e.k === 'ask-a-mentor' ? ` on ${nm(e.to)}` : ''}`;
-      case 'combo': return e.k === 'poach' ? `${nm(e.p)} played a Poach on ${nm(e.to)}` : e.k === 'acquihire' ? `${nm(e.p)} called an Acqui-hire on ${nm(e.to)} for ${cardName(e.named)}` : `${nm(e.p)} called a Portfolio Review`;
-      case 'offer': return `${nm(e.p)} laid down a ${EXIT_NAMES[e.k]} (${money(e.value)})`;
-      case 'pass': return `${nm(e.p)} played a Hard Pass!`;
-      case 'cancel': return e.kind === 'exit' ? 'The deal fell through: its cards go to the discard pile' : 'Stopped by a Hard Pass';
-      case 'exit': return `${nm(e.p)} banked a ${EXIT_NAMES[e.k]}: +${money(e.value)}`;
-      case 'attack': return `Hostile Takeover: ${nm(e.to)} must take ${e.turns} turns`;
-      case 'skip': return `${nm(e.p)} went Out of Office: no draw`;
-      case 'peek': return `${nm(e.p)} looked at the top ${e.c} card${e.c === 1 ? '' : 's'}`;
-      case 'shuffle': return `${nm(e.p)} shuffled the draw pile`;
-      case 'ask': return `${nm(e.to)} must hand ${nm(e.p)} a card`;
-      case 'gave': return e.ok ? `${nm(e.p)} handed ${nm(e.to)} a card` : `${nm(e.p)} had no card to give`;
-      case 'steal': return e.ok ? `${nm(e.p)} poached a card from ${nm(e.from)}` : `${nm(e.from)} had nothing to poach`;
-      case 'hire': return e.ok ? `${nm(e.from)} handed over ${cardName(e.named)}` : `${nm(e.from)} had no ${cardName(e.named)}`;
-      case 'review': return `${nm(e.p)} searched the discard pile`;
-      case 'took': return `${nm(e.p)} took ${cardName(e.k)} from the discard pile`;
-      case 'draw': return `${nm(e.p)} drew a card`;
-      case 'boom': return `${nm(e.p)} drew a BOOM: ${cardName(e.k)}!`;
-      case 'pivot': return `${nm(e.p)} pivoted and survived`;
-      case 'placed': return `${nm(e.p)} slid the BOOM back into the pile`;
-      case 'bust': return `${nm(e.p)} went bankrupt`;
-      case 'round': return `Quarter ${e.round} closed`;
-      case 'refill': return 'The discards were shuffled into the draw pile';
-      default: return null;
-    }
+  // The wording lives in info.js (describe, explain), shared with the drawer's
+  // "What happened" list. Each new entry is announced on its own and held
+  // long enough to read (useAnnouncer); the table's pace stretches the hold.
+  const pace = paceOf(table && table.pace);
+  const factor = paceFactor(pace);
+  const say = (e) => describe(e, nm);
+  const now = useAnnouncer(G, (e) => { const text = SHOWN_BY_PANEL.includes(e.t) ? null : say(e); return text ? { n: e.n, t: e.t, text, why: explain(e), ms: holdOf(e) } : null; }, { factor });
+  // What the action waiting on the table does, in a line, for the panel that announces it.
+  const pendingWhy = p && p.stage === 'react' ? explain({ t: p.kind === 'exit' ? 'offer' : p.kind === 'card' ? 'play' : 'combo', k: p.kind === 'card' ? p.k : p.what }) : null;
+  // Countdowns for the pauses the server is timing (WINDOWS in info.js). The
+  // server restarts a pause on every change of state, so they count from the
+  // moment the last change arrived here.
+  const changedAt = useChangedAt(G);
+  const windowMs = p ? (p.stage === 'react' ? WINDOWS.react : WINDOWS.choice) * factor : isBetweenRounds(G) ? WINDOWS.between * factor : 0;
+  const until = changedAt && windowMs ? changedAt + windowMs : null;
+  const cyclePace = () => {
+    const next = PACE_IDS[(PACE_IDS.indexOf(pace) + 1) % PACE_IDS.length];
+    shell.setPace(next);
+    showToast(`Pace: ${PACES[next].label}, ${PACES[next].note}`, `pace${Date.now()}`);
   };
-  const feed = [];
-  for (let i = log.length - 1; i >= 0 && feed.length < 3; i--) { const text = say(log[i]); if (text) feed.unshift({ n: log[i].n, text, t: log[i].t }); }
 
   const allExits = [];
   for (let s = 0; s < n; s++) (G.exits[s] || []).forEach((e, i) => allExits.push({ key: `${s}:${i}`, seat: s, kind: e.kind, set: e.set, value: e.value }));
@@ -432,7 +431,12 @@ export default function Board({ G, moves, playerID, seats }) {
     return 'These cards do not make a combo or an Exit.';
   };
 
+  // The card "?" and the "business behind" links open the table's Key at that
+  // entry. An opened card closes first, so the Key is not stacked on a sheet.
+  const openKey = shell && shell.openInfo ? (id) => { setSheet((sh) => (sh && sh.kind === 'detail' ? null : sh)); shell.openInfo('key', id); } : null;
+
   return (
+    <KeyCtx.Provider value={openKey}>
     <div className="vb" ref={wrap} style={{ '--u': `${unit || 28}px` }} data-turn={myTurn ? '1' : '0'} data-compact={(unit || 28) * 2.9 < 80 ? '1' : undefined}>
       {/* round, variant and the wordmark */}
       <div className="vb__top">
@@ -463,9 +467,6 @@ export default function Board({ G, moves, playerID, seats }) {
 
       {/* the table: draw pile, discard pile, what just happened */}
       <div className="vb__table" ref={tableRef}>
-        <button type="button" className="vb__sound" onClick={toggleSound} aria-pressed={!muted} aria-label={muted ? 'Turn sounds on' : 'Mute sounds'} title={muted ? 'Sounds are off' : 'Sounds are on'}>
-          <span aria-hidden="true">{muted ? '\u{1F507}' : '\u{1F50A}'}</span>
-        </button>
         <div className="vb__table-main">
         <div className="vb__piles">
           <button type="button" className={`vb__pile${myTurn ? ' vb__pile--live' : ''}`} disabled={!myTurn} onClick={() => send(() => moves.draw())} aria-label={myTurn ? `Draw a card and end your turn. ${deckCount} cards in the pile.` : `Draw pile: ${deckCount} cards`}>
@@ -478,20 +479,34 @@ export default function Board({ G, moves, playerID, seats }) {
           </button>
         </div>
         <div className={`vb__side${p ? ' vb__side--busy' : ''}`}>
+          {/* What just happened, one thing at a time, with what it means. Tap for the whole list. */}
           <div className="vb__feed" role="log" aria-live="polite">
-            {!p && feed.slice(toast ? -2 : -3).map((f) => <div key={f.n} className={`vb__line vb__line--${f.t}`}>{f.text}</div>)}
-            {toast && <div key={toast.key} className="vb__note">{'\u{1F512}'} {toast.text}</div>}
+            {!p && now && (
+              shell && shell.openInfo
+                ? <button type="button" key={now.n} className={`vb__now vb__now--${now.t}`} onClick={() => shell.openInfo('moves')} aria-label={`${now.text}. ${now.why || ''} Open the list of everything that has happened.`}>
+                  <span className="vb__now-text">{now.text}</span>
+                  {now.why && !toast && <span className="vb__now-why">{now.why}</span>}
+                  <span className="vb__now-more" aria-hidden="true">All moves {'›'}</span>
+                </button>
+                : <div key={now.n} className={`vb__now vb__now--${now.t}`}><span className="vb__now-text">{now.text}</span>{now.why && !toast && <span className="vb__now-why">{now.why}</span>}</div>
+            )}
+            {toast && <div key={toast.key} className="vb__note">{toast.key && String(toast.key).startsWith('pace') ? '' : '\u{1F512} '}{toast.text}</div>}
           </div>
           {/* an action waiting for Hard Passes, or for somebody's choice */}
           {p && (
             <div className={`vb__pending${owe ? ' vb__pending--me' : ''}`} key={`${p.id}:${p.stage}`}>
               <div className="vb__pending-text">
                 <b>{pendingLine()}</b>
+                {pendingWhy && <span className="vb__pending-why">{pendingWhy}</span>}
                 {p.stage === 'react' && (
                   <span className="vb__pending-sub">
                     {p.passes > 0 ? `${p.passes} Hard Pass${p.passes === 1 ? '' : 'es'}: ${p.passes % 2 ? 'stopped as it stands' : 'back on'}. ` : ''}
                     {owe ? (canPass ? 'Stop it with a Hard Pass?' : 'No Hard Pass in hand: letting it go.') : `Waiting for ${waiting.length} answer${waiting.length === 1 ? '' : 's'}`}
+                    {(!owe || canPass) && <Countdown until={until} prefix={owe ? ' It goes through in ' : ' · up to '} suffix={owe ? '.' : ''} />}
                   </span>
+                )}
+                {p.stage !== 'react' && until && (
+                  <span className="vb__pending-sub"><Countdown until={until} prefix={owe ? 'Choose within ' : 'Up to '} suffix={owe ? ', or one is picked for you.' : ' to choose.'} /></span>
                 )}
               </div>
               {p.stage === 'react' && p.kind !== 'card' && p.shown && p.shown.length > 0 && !(stage === 'react' && canPass) && (
@@ -505,6 +520,17 @@ export default function Board({ G, moves, playerID, seats }) {
               )}
             </div>
           )}
+        </div>
+        {/* sound and pace: a column of their own, so they never sit on top of what just happened */}
+        <div className="vb__tools">
+        {shell && shell.setPace && shell.canPace && !G.over && (
+          <button type="button" className="vb__sound vb__pace" onClick={cyclePace} aria-label={`Pace of play: ${PACES[pace].label}. Change`} title={`Pace: ${PACES[pace].label}, ${PACES[pace].note}`} data-pace={pace}>
+            <span aria-hidden="true">{pace === 'slow' ? '\u{1F422}' : pace === 'quick' ? '\u26A1' : '\u25B6\uFE0F'}</span>
+          </button>
+        )}
+        <button type="button" className="vb__sound" onClick={toggleSound} aria-pressed={!muted} aria-label={muted ? 'Turn sounds on' : 'Mute sounds'} title={muted ? 'Sounds are off' : 'Sounds are on'}>
+          <span aria-hidden="true">{muted ? '\u{1F507}' : '\u{1F50A}'}</span>
+        </button>
         </div>
         </div>
         {/* every player's Exit area, when the table has room for it (see board.css) */}
@@ -682,7 +708,7 @@ export default function Board({ G, moves, playerID, seats }) {
             </div>
             <ScoreRows order={standing} nm={nm} hex={hex} G={G} gains={recap.gains} scores={recap.scores} bankrupt={recap.bankrupt} />
             <p className="vb__muted">Survivors score a {money(SURVIVAL_BONUS)} bonus. Hands are thrown in and a new quarter is dealt.</p>
-            <button type="button" className="vb__btn vb__btn--gold vb__btn--wide" onClick={() => { if (mySeat !== null && isBetweenRounds(G) && G.summary.round === recap.round) moves.ready(G.round); setRecap(null); }}>{recapStale ? 'Back to the table' : 'Continue'}</button>
+            <button type="button" className="vb__btn vb__btn--gold vb__btn--wide" onClick={() => { if (mySeat !== null && isBetweenRounds(G) && G.summary.round === recap.round) moves.ready(G.round); setRecap(null); }}>{recapStale ? 'Back to the table' : 'Continue'}{!recapStale && <Countdown until={until} prefix=" (next quarter in " suffix=")" />}</button>
           </div>
         </div>
       )}
@@ -699,6 +725,7 @@ export default function Board({ G, moves, playerID, seats }) {
         </div>
       )}
     </div>
+    </KeyCtx.Provider>
   );
 }
 
@@ -723,12 +750,16 @@ function ScoreRows({ order, nm, hex, G, gains = null, scores, placements = null,
 }
 
 function DynamicLink({ d }) {
+  const openKey = useContext(KeyCtx);
   if (!d) return null;
+  const id = Object.keys(DYNAMICS).find((k) => DYNAMICS[k] === d);
+  if (openKey && id) return <button type="button" className="vb__learn" onClick={() => openKey(id)}>The business behind {d.name}: {d.dynamic}</button>;
   return <a className="vb__learn" href={d.link} target="_blank" rel="noopener noreferrer">The business behind {d.name}: {d.dynamic} {'↗'}</a>;
 }
 
 /** The opened card: the full card as drawn, its flavour line, the business move behind it and the link to the real story. */
 function Detail({ card, onClose }) {
+  const openKey = useContext(KeyCtx);
   const set = card.set ? SETS[card.set] : null;
   const art = artFor(card);
   return (
@@ -741,7 +772,9 @@ function Detail({ card, onClose }) {
           <p className="vb__detail-flavor">{card.flavor}</p>
           {set && <p className="vb__muted">{art ? `${set.name}, ${set.nickname}. ` : ''}Running gag: {set.gag}.</p>}
           <div className="vb__dynamic"><span className="vb__eyebrow">The real business move</span><b>{card.dynamic}</b></div>
-          <a className="vb__learn" href={card.link} target="_blank" rel="noopener noreferrer">Learn the real story {'↗'}</a>
+          {openKey
+            ? <button type="button" className="vb__learn" onClick={() => openKey(card.key)}>The real story, and the key to every card</button>
+            : <a className="vb__learn" href={card.link} target="_blank" rel="noopener noreferrer">Learn the real story {'↗'}</a>}
         </div>
       </div>
       <p className="vb__brandline"><b>{WORDMARK}</b> {'·'} {MAKER_LINE}</p>

@@ -172,6 +172,19 @@ Set these in the host's dashboard. `.env.example` has the full list with notes.
 | `RESEND_API_KEY`, `MAIL_FROM` | recommended | Confirmation and password-reset emails. Without a key, new accounts count as verified and reset links are made by hand |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PRICE_MEMBER`, `PRICE_VIP`, `PRICE_CEO` | when you sell | Until set, Membership collects a waitlist |
 
+### AI guides (Anthropic)
+
+The Coach, Mentor, Spark, Historian and Money Guide are Claude, through
+Anthropic's API. Create a key at platform.claude.com (Settings > API keys), set
+a monthly spend limit there, and add it in your host's dashboard as
+`ANTHROPIC_API_KEY`. Without it the Guides page says "coming soon" and nothing
+else changes. `/healthz` reports `"guides": "on"` once the key is seen.
+
+The default model is `claude-haiku-4-5-20251001` (the cheapest; a message costs
+a fraction of a cent). `GUIDE_MODEL` changes it. A member's daily allowance is
+`GUIDE_DAILY` in `src/shared/guides.js`; `GUIDE_SITE_DAILY_CAP` (default 3000)
+is the most the whole site may send in a day.
+
 ### Database (any Postgres)
 
 On first start the server creates one table, `va_docs`, and keeps everything in
@@ -247,7 +260,8 @@ fails the build if a registration step is missed.
 ## Known gaps before a public launch
 
 - **Ages: get legal advice before inviting under-18s.** Accounts ask for a date of birth and refuse under-13s, and an adult and an under-18 cannot contact each other privately until they have played together. That is a sensible floor, not a compliance review. Guests are NOT asked their age (they give no email and cannot message anyone, but they can type in a table's chat). There is no parental consent step, no moderation queue for chat, and the Report button sends a note to the operator rather than hiding anything. An account closed by the age check is kept for the operator to remove: `npm run admin` has no delete command yet.
-- Table chat and direct messages are kept without a time limit, and there is no "delete my messages" or "delete my account" for members yet.
+- **AI guides.** What members type to the guides, with the basics of their profile, is sent to Anthropic's API to write each reply; say so in your privacy notice. The guides are instructed not to give financial, legal or tax advice and to be careful with under-18s, but a language model can still be wrong or say something it should not: "Report this reply" puts the reply in the feedback list (`npm run admin -- feedback`), and nobody reviews replies before a member sees them. Set a monthly spend limit in the Anthropic Console as well as `GUIDE_SITE_DAILY_CAP`. The guides were tested against a stand-in, not against Anthropic's service: send one message after deploying and read the log if it fails (`[guides]` lines name the error type).
+- Table chat, direct messages and guide conversations are kept without a time limit, and there is no "delete my messages" or "delete my account" for members yet.
 - No Content-Security-Policy header yet.
 - Login is rate limited per address, not per account; there is no lockout.
 - A member can block someone through the API, but there is no Block button or unblock yet.

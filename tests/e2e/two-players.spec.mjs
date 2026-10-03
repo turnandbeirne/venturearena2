@@ -177,9 +177,11 @@ export default async function twoPlayers({ baseUrl, browser, check, shots }) {
       await untilSame([A, B, C]);
     });
     await check('each screen says how it ended', async () => {
-      await A.locator('.stage__foot').getByText('You won!').waitFor();
-      await B.locator('.stage__foot').getByText(/Game over/).waitFor();
-      await C.locator('.stage__foot').getByText('Game over: Ada won').waitFor();
+      // The result is in the banner above the board; the foot counts down to the debrief.
+      await A.locator('.stage__banner').getByText('You won!').waitFor();
+      await B.locator('.stage__banner').getByText(/Game over/).waitFor();
+      await C.locator('.stage__banner').getByText('Game over: Ada won').waitFor();
+      for (const p of [A, B, C]) await p.locator('[data-end-bar] [data-countdown]').waitFor();
     });
     await shots(A, 'stage-won-360');
   });

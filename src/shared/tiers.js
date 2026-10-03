@@ -63,13 +63,13 @@ export const HISTORY_DAYS = { anonymous: 30, free: 30, member: Infinity, vip: In
 /** Membership page content. */
 export const TIER_CARDS = [
   { id: 'free', human: 'Play, keep a card, add up to 25 connections.',
-    perks: ['Join or host a table, play any game', 'Player card, rating and 30 days of history', 'Connect and message the people you played with', 'Daily topic, quiz, streak and Arena Points', '10 challenges a day'] },
+    perks: ['Join or host a table, play any game', 'Player card, rating and 30 days of history', 'Connect and message the people you played with', 'Daily topic, quiz, streak and Arena Points', '10 challenges a day', 'AI guides: 5 messages a day'] },
   { id: 'member', human: 'Meet the people you play with.',
-    perks: ['Private tables and 3 tables at once', 'Full history and play-style profiles', 'Message anyone', 'Mentor and cofounder matches', 'Full lesson library and fine-grained game settings', 'Post roles and internships'] },
+    perks: ['Private tables and 3 tables at once', 'Full history and play-style profiles', 'Message anyone', 'Mentor and cofounder matches', 'Full lesson library and fine-grained game settings', 'Post roles and internships', 'AI guides: 30 messages a day'] },
   { id: 'vip', human: 'Warm introductions to mentors and investors.',
-    perks: ['Everything in Subscriber', 'Investor matches (opt-in on both sides)', 'Head-to-head records', '10 tables at once and saved presets', 'Post incubation calls, investment theses and business challenges', 'Verified badge'] },
+    perks: ['Everything in Subscriber', 'Investor matches (opt-in on both sides)', 'Head-to-head records', '10 tables at once and saved presets', 'Post incubation calls, investment theses and business challenges', 'Verified badge', 'AI guides: 80 messages a day'] },
   { id: 'ceo', human: 'For exited founders and investors who want curated peers.',
-    perks: ['Everything in VIP', 'Unlimited tables and hosted events', 'Vouch for players', 'Featured placement', 'Curated introductions from the VentureArena team', 'Monthly coaching session'] },
+    perks: ['Everything in VIP', 'Unlimited tables and hosted events', 'Vouch for players', 'Featured placement', 'Curated introductions from the VentureArena team', 'Monthly coaching session', 'AI guides: 200 messages a day'] },
 ];
 
 /** Programs behind a paid seat (shown on Home and Membership). */

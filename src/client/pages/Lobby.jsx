@@ -7,6 +7,7 @@ import { useAuth } from '../auth.jsx';
 import { useEvent } from '../realtime.js';
 import { useGames } from '../games.js';
 import { Avatar, Loading, useAction } from '../components/ui.jsx';
+import { TableInvitations } from '../components/TableInvites.jsx';
 
 export default function Lobby() {
   const { tier } = useAuth();
@@ -17,6 +18,10 @@ export default function Lobby() {
   const [note, setNote] = useState('');
   const { error, busy, run } = useAction();
 
+  const [invited, setInvited] = useState([]);
+  const loadInvited = useCallback(() => rpc('inbox').then((r) => setInvited(r.tableInvites || [])).catch(() => {}), []);
+  useEffect(() => { loadInvited(); }, [loadInvited]);
+  useEvent('inbox', loadInvited);
   const load = useCallback(() => rpc('lobby').then(setLobby).catch(() => {}), []);
   useEffect(() => { load(); rpc('recommendations').then((r) => setRecs((r.by.playmate || []).slice(0, 3))).catch(() => {}); }, [load]);
   useEvent('lobby', load);
@@ -36,6 +41,7 @@ export default function Lobby() {
       </div>
       {error && <div className="error" role="alert">{error}</div>}
       {note && <div className="notice">{note}</div>}
+      <TableInvitations invites={invited} onChange={loadInvited} />
 
       {lobby.mine.length > 0 && (
         <section className="stack">
@@ -53,42 +59,11 @@ export default function Lobby() {
         </section>
       )}
 
-      {families.map(([family, title, blurb]) => {
-        const list = games.games.filter((g) => g.family === family);
-        if (!list.length) return null;
-        return (
-          <section key={family} className="stack">
-            <div><h2>{title}</h2><p className="small muted">{blurb}</p></div>
-            <div className="grid three">
-              {list.map((g) => (
-                <div key={g.id} className="card stack" data-game-card={g.id}>
-                  <div className="row"><span style={{ fontSize: 26 }} aria-hidden="true">{g.icon}</span><div className="grow"><h3>{g.name}</h3><div className="tiny muted">{g.seats.min === g.seats.max ? `${g.seats.min} players` : `${g.seats.min}-${g.seats.max} players`} {'·'} {g.minutes} min</div></div></div>
-                  <p className="small muted grow">{g.tagline}</p>
-                  <div className="row-wrap">{g.skills.slice(0, 3).map((s) => <span key={s} className="chip">{s}</span>)}</div>
-                  <div className="row-wrap">
-                    <button className="btn gold sm grow" disabled={busy} onClick={() => go('playBots', { gameId: g.id })}>Play a bot</button>
-                    <button className="btn sm" disabled={busy} onClick={() => go('quickMatch', { gameId: g.id })} title="Sit at an open table near your rating, or open one">Quick match</button>
-                    <button className="btn sm" disabled={busy} onClick={() => go('createTable', { gameId: g.id })} title="Open your own table and invite people">Host</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-      <p className="tiny muted">Hosting several tables at once: guests and registered members 1, Subscribers 3, VIPs 10, CEOs unlimited.{tier === 'anonymous' ? ' Add an email on the Me tab to keep your history and meet the people you play.' : ''}</p>
-
-      {recs.length > 0 && (
-        <section className="stack">
-          <h2>People who fit you</h2>
-          <div className="grid three">{recs.map((r) => <Link key={r.userId} to={`/p/${r.card.username}`} className="card tap"><div className="row"><Avatar p={r.card} size={36} dot={r.card.online} /><div className="grow"><div className="truncate" style={{ fontWeight: 650 }}>{r.card.displayName}</div><div className="tiny muted">{r.reason}</div></div></div></Link>)}</div>
-        </section>
-      )}
-
-      <section className="stack">
+      {/* Tables other people have open come before the list of games: joining one is the quickest way to play a person. (They used to sit at the bottom of the page, under every game card.) */}
+      <section className="stack" data-open-tables>
         <h2>Open tables</h2>
         {lobby.open.filter((t) => !t.role).length === 0 ? (
-          <div className="card center muted small">No open tables right now. Quick match seats you with a bot if nobody shows. Up to 7 people can be at any table: players fill the seats, everyone else watches and joins the debrief.</div>
+          <p className="small muted" style={{ margin: 0 }} data-no-open-tables>Nobody has a table open right now. Start one below with Host, or use Quick match: it seats you with a bot if nobody shows.</p>
         ) : (
           <div className="grid two">
             {lobby.open.filter((t) => !t.role).map((t) => {
@@ -118,6 +93,40 @@ export default function Lobby() {
           ))}</div>
         </section>
       )}
+
+      {families.map(([family, title, blurb]) => {
+        const list = games.games.filter((g) => g.family === family);
+        if (!list.length) return null;
+        return (
+          <section key={family} className="stack">
+            <div><h2>{title}</h2><p className="small muted">{blurb}</p></div>
+            <div className="grid three">
+              {list.map((g) => (
+                <div key={g.id} className="card stack" data-game-card={g.id}>
+                  <div className="row"><span style={{ fontSize: 26 }} aria-hidden="true">{g.icon}</span><div className="grow"><h3>{g.name}</h3><div className="tiny muted">{g.seats.min === g.seats.max ? `${g.seats.min} players` : `${g.seats.min}-${g.seats.max} players`} {'·'} {g.minutes} min</div></div>
+                    <Link className="btn sm" to={`/key/${g.id}`} aria-label={`Key to ${g.name}: ${g.family === 'classic' ? 'the pieces' : 'the cards'} and what they teach`} style={{ flex: 'none' }}>Key</Link></div>
+                  <p className="small muted grow">{g.tagline}</p>
+                  <div className="row-wrap">{g.skills.slice(0, 3).map((s) => <span key={s} className="chip">{s}</span>)}</div>
+                  <div className="row-wrap">
+                    <button className="btn gold sm grow" disabled={busy} onClick={() => go('playBots', { gameId: g.id })}>Play a bot</button>
+                    <button className="btn sm" disabled={busy} onClick={() => go('quickMatch', { gameId: g.id })} title="Sit at an open table near your rating, or open one">Quick match</button>
+                    <button className="btn sm" disabled={busy} onClick={() => go('createTable', { gameId: g.id })} title="Open your own table and invite people">Host</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+      <p className="tiny muted">Hosting several tables at once: guests and registered members 1, Subscribers 3, VIPs 10, CEOs unlimited.{tier === 'anonymous' ? ' Add an email on the Me tab to keep your history and meet the people you play.' : ''}</p>
+
+      {recs.length > 0 && (
+        <section className="stack">
+          <h2>People who fit you</h2>
+          <div className="grid three">{recs.map((r) => <Link key={r.userId} to={`/p/${r.card.username}`} className="card tap"><div className="row"><Avatar p={r.card} size={36} dot={r.card.online} /><div className="grow"><div className="truncate" style={{ fontWeight: 650 }}>{r.card.displayName}</div><div className="tiny muted">{r.reason}</div></div></div></Link>)}</div>
+        </section>
+      )}
+
 
       {games.extras.length > 0 && (
         <section className="stack">

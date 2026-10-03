@@ -36,6 +36,13 @@ export function loadConfig(env = process.env) {
       webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
       prices: { member: env.PRICE_MEMBER || '', vip: env.PRICE_VIP || '', ceo: env.PRICE_CEO || '' },
     },
+    // The AI guides (server/arena/guides.js). No key: they show as "coming soon".
+    anthropicApiKey: env.ANTHROPIC_API_KEY || '',
+    guideModel: String(env.GUIDE_MODEL || '').trim(),
+    // The most messages the whole site may send to the guides in one day: a hard ceiling on the bill.
+    guideSiteDailyCap: Math.max(0, Math.floor(num(env.GUIDE_SITE_DAILY_CAP, 3000))),
+    // A canned stand-in for the browser tests. Ignored unless NODE_ENV is "test".
+    guidesFake: env.NODE_ENV === 'test' && env.COACH_FAKE === '1',
     resendKey: env.RESEND_API_KEY || '',
     mailFrom: env.MAIL_FROM || 'VentureArena <arena@venturemaker.org>',
     gateCustomSettings: env.GATE_CUSTOM_SETTINGS === '1',

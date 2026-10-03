@@ -73,7 +73,7 @@ function Workbench({ mod, botMod, meta, rulesMod }) {
 
   const { Board } = mod;
   const acting = actingSeats(m.G);
-  const shell = { leave: () => {}, openChat: () => {}, openHelp: () => {}, unread: 0, debriefUrl: '#', finished: !!m.G.over };
+  const shell = { leave: () => {}, openChat: () => {}, openHelp: () => {}, unread: 0, debriefUrl: '#', finished: !!m.G.over }; // no openInfo: there is no table drawer here
   return (
     <div className="stage" data-game={gameId} data-over={m.G.over ? '1' : '0'}>
       {!mod.fullscreen && (

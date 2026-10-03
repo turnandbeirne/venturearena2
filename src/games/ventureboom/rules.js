@@ -806,6 +806,34 @@ export function housekeeping(G) {
   return null;
 }
 
+// ---- pace ---------------------------------------------------------------------
+// How long the thing that just happened should stay on screen before a bot
+// does the next thing, at the table's Steady pace (the bot runner scales it:
+// shared/pace.js). People are never made to wait; this only holds robots back
+// so that a person can read what was done. The board's announcer shows each
+// entry for the same time (info.js holdOf), so a run of robot turns arrives at
+// the pace it is read: the table never gets ahead of the words on it.
+export const HOLD_MS = {
+  announce: 2200, // a card, combo or Exit has just been put down: let the table read it, and what it does, before the robots answer
+  draw: 1200, deal: 1500,
+  boom: 1900, pivot: 1500, placed: 1400, bust: 2600,
+  exit: 1900, cancel: 1900, pass: 1700,
+  attack: 1900, skip: 1500, peek: 1700, shuffle: 1600,
+  gave: 1700, steal: 1900, hire: 2000, took: 1900, refill: 1200,
+};
+export function pauseAfter(G) {
+  if (!G || G.over || isBetweenRounds(G)) return 0;
+  const p = G.pending;
+  if (p) {
+    // Only the first answer waits: once someone has answered, the rest follow at once.
+    const untouched = p.stage === 'react' && Array.isArray(G.waiting) && G.waiting.length === Math.max(0, G.n - 1);
+    return untouched ? HOLD_MS.announce : 0;
+  }
+  const log = Array.isArray(G.log) ? G.log : [];
+  const last = log.length ? log[log.length - 1] : null;
+  return last && HOLD_MS[last.t] ? HOLD_MS[last.t] : 0;
+}
+
 // ---- what the arena learns --------------------------------------------------
 const clamp = (v) => Math.max(0, Math.min(100, Math.round(v)));
 

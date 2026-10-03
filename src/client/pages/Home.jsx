@@ -62,7 +62,7 @@ export default function Home() {
           <div className="pcard"><div className="stat" data-stat="points"><b>{user.points || 0}</b><span title="Arena Points">Points</span></div></div>
           <div className="pcard"><div className="stat" data-stat="rank"><b>{card.rank}</b><span>Rank</span></div></div>
         </div>
-        {user.stats && user.stats.games > 0 && <div><Link className="btn sm" to="/history">Your game history and chats</Link></div>}
+        <div className="row-wrap">{user.stats && user.stats.games > 0 && <Link className="btn sm" to="/history">Your game history and chats</Link>}<Link className="btn sm" to="/guides">Ask an AI guide</Link></div>
       </div>
       {error && <div className="error" role="alert">{error}</div>}
       <AccessNotice />

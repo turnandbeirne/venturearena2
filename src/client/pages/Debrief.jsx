@@ -126,7 +126,7 @@ export default function Debrief() {
       )}
 
       {user.isGuest && <div className="notice">That game is on your guest record. <Link to="/signin?mode=create">Create a free account</Link> to keep it and get your player card.</div>}
-      <div className="row-wrap"><button className="btn gold" onClick={again}>Play again</button><Link to="/play" className="btn">Back to the arena</Link></div>
+      <div className="row-wrap"><button className="btn gold" onClick={again}>Play again</button>{!user.isGuest && d.mine && <Link to={`/guides/coach?game=${id}`} className="btn">Talk it through with the Coach</Link>}<Link to="/play" className="btn">Back to the arena</Link></div>
     </div>
   );
 }

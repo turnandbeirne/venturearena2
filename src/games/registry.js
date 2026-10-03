@@ -39,12 +39,14 @@ import mancalaMeta from './mancala/meta.js';
  *   botLineup(settings, count)  which robots fill the empty seats
  *   onLeave(G, seat, reason)    the move to make when a person leaves mid-game
  *   observations / playStyle    lines for the debrief and the player card
+ *   pauseAfter(G)               ms the last thing that happened should stay on screen before a bot acts
  */
 function entry(mod, game, bot, meta) {
   return {
     rules: game, bot, meta,
     telemetry: mod.telemetry, housekeeping: mod.housekeeping, normalizeSettings: mod.normalizeSettings,
     botLineup: mod.botLineup, onLeave: mod.onLeave, observations: mod.observations, playStyle: mod.playStyle,
+    pauseAfter: mod.pauseAfter,
   };
 }
 

@@ -7,6 +7,7 @@ import { PlayerCard, BioBlock, PersonaBlock, Loading, useAction, useToast } from
 import InvitePanel from '../components/InvitePanel.jsx';
 import { IdentityFields, BusinessFields, WantFields, ContactFields, CardSort, draftFrom, draftToArgs } from '../components/ProfileFields.jsx';
 import { Record } from './Profile.jsx';
+import TimeCard from '../components/TimeCard.jsx';
 import { BirthDateField, rememberTooYoung, tooYoungHere, TOO_YOUNG_TEXT } from '../components/AgeFields.jsx';
 import { ARCHETYPES, POINT_LABELS, SURVEY_PARTS, timeAgo } from '../../shared/profile.js';
 
@@ -109,6 +110,7 @@ export default function Me() {
       <BioBlock p={user.card} />
       <PersonaBlock card={user.card} />
       {record ? <Record data={record} own /> : <Loading what="Loading your record" />}
+      <TimeCard />
 
       {!user.isGuest && <InvitePanel showHistory />}
 

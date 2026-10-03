@@ -15,7 +15,7 @@
 //
 // No React, no DOM, no clock, no Math.random in here. Time only ever arrives
 // as an argument of a house move (`now`, `deadlineAt`).
-import { defineGame, refuse, isHouse, finish, placementsFromScores, pushLog, countMove, INVALID_MOVE } from '../kit.js';
+import { defineGame, refuse, isHouse, finish, placementsFromScores, pushLog, countMove, INVALID_MOVE, recordRoll } from '../kit.js';
 import { gameReducer } from './vf/game/reducer';
 import { seedRng, snapshotRng, restoreRng } from './vf/game/rng';
 import { netWorth, passiveIncome } from './vf/game/players';
@@ -346,6 +346,9 @@ function apply(G, vf, a, seat) {
   if (!next || next === vf || next.lastError) return INVALID_MOVE;
   G.vf = next;
   G.secret.rng = snapshotRng();
+  // The weather that governed the month that just ended, for the table's
+  // "Luck" tab (info.js). Counts only; guarded where written (kit.recordRoll).
+  if (next.month !== vf.month && vf.weather && vf.weather.stageId) recordRoll(G, 'weather', vf.weather.stageId);
 
   if (!Array.isArray(G.missed)) G.missed = next.players.map(() => 0);
   if (seat !== null) {

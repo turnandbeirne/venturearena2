@@ -13,6 +13,7 @@ import { clean } from './context.js';
 import { GAMES, GAME_ORDER, getGame } from '../../games/registry.js';
 import { actingSeats } from '../../games/kit.js';
 import { HOST_LIMIT } from '../../shared/tiers.js';
+import { PACES, PACE_IDS, paceOf } from '../../shared/pace.js';
 import { assignSeatColors, TABLE_QUESTIONS, BOT_AVATAR, colorHex } from '../../shared/profile.js';
 
 export const TABLE_CAPACITY = 7;
@@ -94,6 +95,11 @@ export function install(A) {
     return {
       id: t.id, gameId: t.gameId, gameName: g.name, hostId: t.hostId, visibility: t.visibility, mode: t.mode, status: t.status,
       inviteCode: t.inviteCode, createdAt: t.createdAt, startedAt: t.startedAt || null, endedAt: t.endedAt || null,
+      now: A.now(), // the server's clock, so the table clock is right on a device whose own clock is not
+      pace: paceOf(t.pace), canPace: canPace(t, uid),
+      resign: resignOptions(t, uid), // what the Resign button offers this viewer; null for a spectator or a finished game
+      // How long a live seat may sit on its move before a bot finishes the game for it (null: a day, turn-based).
+      idleLimitMs: t.mode === 'turn_based' ? null : (A.config.idleTakeoverMs ?? 180000),
       settings: t.settings, question: t.question, auto: !!t.auto, autoStartAt: t.autoStartAt || null,
       seats: seatViews(t, viewer),
       observers: t.observers.map((id) => A.card(users.get(id), viewer)).filter(Boolean),
@@ -255,6 +261,31 @@ export function install(A) {
     return { matchID: t.id, gameId: t.gameId, playerID: mine ? String(seat) : null, credentials: mine ? t.creds[seat] : null };
   };
 
+  // ---- pace of play ---------------------------------------------------------------------
+  // Unlike the game's settings, the pace can change while the game is on: it
+  // only stretches the pauses meant for people (shared/pace.js). The host
+  // sets it; at a table with one person and bots, that person does.
+  function canPace(t, uid) {
+    if (!uid || !t.players.includes(uid)) return false;
+    const people = (t.seats || []).filter((s) => s.userId && !s.takeover);
+    if (t.status === 'playing' && people.length === 1) return people[0].userId === uid;
+    return t.hostId === uid;
+  }
+  A.rpc.setPace = (me, args) => {
+    const t = must(args.id);
+    if (!PACE_IDS.includes(args.pace)) throw A.err('Pick Quick, Steady or Slow.', 400);
+    if (t.status !== 'open' && t.status !== 'playing') throw A.err('That game is over.');
+    if (!canPace(t, me.id)) throw A.err(t.players.includes(me.id) ? 'Only the host can change the pace.' : 'Only a player at the table can change the pace.', 403);
+    A.limit(`pace:${me.id}`, 20, 60000);
+    if (t.pace !== args.pace) {
+      t.pace = args.pace;
+      tables.put(t); touchTable(t);
+      if (t.status === 'playing') A.tableSay(t, 'arena', `${me.displayName} set the pace to ${PACES[args.pace].label}.`, true);
+      if (t.status === 'playing' && A.hooks.planMatch) A.hooks.planMatch(t); // a pause already running is re-timed
+    }
+    return { table: A.tableView(t, me) };
+  };
+
   A.rpc.setTableSettings = (me, args) => {
     const t = must(args.id);
     if (t.hostId !== me.id) throw A.err('Only the host can change the settings.', 403);
@@ -380,7 +411,7 @@ export function install(A) {
 
   // ---- leaving, forfeits, takeovers --------------------------------------------------------
   /** Hand a seat to a bot for the rest of the game. */
-  async function takeover(t, seat, reason) {
+  async function takeover(t, seat, reason, { playOn = false } = {}) {
     const s = t.seats[seat];
     if (!s || s.bot || s.takeover) return;
     const g = getGame(t.gameId);
@@ -393,7 +424,10 @@ export function install(A) {
     if (u) {
       u.reputation.score = Math.max(0, u.reputation.score - 10); u.reputation.abandons += 1; users.put(u);
     }
-    const plan = g.onLeave ? g.onLeave(A.bgio.state(t.id).G, seat, reason) : (g.meta.seats.max === 2 ? { as: 'seat', move: 'resign', args: [] } : null);
+    // A two-seat game someone walks away from is over: the seat resigns.
+    // `playOn` is the other choice a player can make on purpose (resignTable):
+    // the bot plays the seat to the end, so the person across the table still gets their game.
+    const plan = g.onLeave ? g.onLeave(A.bgio.state(t.id).G, seat, reason) : (g.meta.seats.max === 2 && !playOn ? { as: 'seat', move: 'resign', args: [] } : null);
     if (plan) await A.bgio.submit(t.id, t.gameId, plan.as === 'house' ? t.house : seat, plan.move, plan.args || []);
     touchTable(t);
     if (A.hooks.planMatch) A.hooks.planMatch(t);
@@ -415,6 +449,46 @@ export function install(A) {
     }
   }
   A.rpc.leaveTable = async (me, args) => { const t = tables.get(args.id); if (t) await leave(me, t); return { ok: true }; };
+
+  // ---- resigning -----------------------------------------------------------------------------
+  // Two ways to stop playing on purpose, offered by the Resign button at every table:
+  //   concede  the game ends now and the other player wins. Only where one
+  //            player giving up settles the game: the two-seat games.
+  //   bot      a bot plays the seat to the end, so everyone else still gets
+  //            their game. Where only bots are left it is played out at once.
+  // Conceding is a proper end to a game and costs nothing but the result.
+  // Handing a seat to a bot counts as leaving does: other people sat down to
+  // play a person.
+  function resignOptions(t, uid) {
+    if (t.status !== 'playing' || !uid) return null;
+    const seat = seatOf(t, uid);
+    if (seat < 0 || t.seats[seat].takeover) return null;
+    const g = getGame(t.gameId);
+    const concede = !!(g && g.rules.moves && g.rules.moves.resign);
+    const others = t.seats.filter((s, i) => i !== seat && s.userId && !s.takeover).length;
+    // Against a bot alone in a two-seat game there is nobody to play on for.
+    return { concede, bot: !(concede && others === 0), others };
+  }
+  A.rpc.resignTable = async (me, args) => {
+    const t = must(args.id);
+    const opts = resignOptions(t, me.id);
+    if (!opts) throw A.err(t.status === 'playing' ? 'You are not playing at this table.' : 'That game is not in play.', 403);
+    const seat = seatOf(t, me.id);
+    if (args.how === 'concede') {
+      if (!opts.concede) throw A.err('This game cannot be conceded: with more than two players it goes on without you. Hand your seat to a bot instead.');
+      const ok = await A.bgio.submit(t.id, t.gameId, seat, 'resign', []);
+      if (!ok) throw A.err('The game could not be conceded. It may have just ended.');
+      A.tableSay(t, 'arena', `${t.seats[seat].name} conceded the game.`, true);
+      return { ok: true, how: 'concede' };
+    }
+    if (args.how === 'bot') {
+      if (!opts.bot) throw A.err('There is nobody left to play on for. Concede instead.');
+      A.tableSay(t, 'arena', `${t.seats[seat].name} resigned. A bot is playing their seat.`, true);
+      await takeover(t, seat, 'resigned', { playOn: true });
+      return { ok: true, how: 'bot' };
+    }
+    throw A.err('Choose to concede or to hand your seat to a bot.', 400);
+  };
 
   A.rpc.closeMyTables = async (me, args) => {
     let n = 0;

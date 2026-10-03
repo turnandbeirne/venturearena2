@@ -1,4 +1,4 @@
-// The signed-in shell: five tabs within thumb reach on a phone, a side rail
+// The signed-in shell: six tabs within thumb reach on a phone, a side rail
 // on a wide screen. Anyone without a session is sent to the front door and
 // brought back to where they were going.
 import { useCallback, useEffect, useState } from 'react';
@@ -16,10 +16,11 @@ const ICONS = {
   home: <path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
   play: <path d="M6 4l14 8-14 8z" />,
   people: <><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-4 3-6 7-6s7 2 7 6" /><circle cx="17.5" cy="9" r="2.5" /><path d="M16 14c3 0 6 1.5 6 5" /></>,
+  guides: <><circle cx="12" cy="12" r="9" /><path d="M15.5 8.5l-2 5-5 2 2-5z" /></>,
   inbox: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>,
   me: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7" /></>,
 };
-const TABS = [['home', 'Home', '/home'], ['play', 'Play', '/play'], ['people', 'People', '/people'], ['inbox', 'Inbox', '/inbox'], ['me', 'Me', '/me']];
+const TABS = [['home', 'Home', '/home'], ['play', 'Play', '/play'], ['guides', 'Guides', '/guides'], ['people', 'People', '/people'], ['inbox', 'Inbox', '/inbox'], ['me', 'Me', '/me']];
 
 export default function Layout() {
   const { user, loading } = useAuth();
@@ -35,10 +36,15 @@ export default function Layout() {
 
   const count = useCallback(() => {
     if (!user) return;
-    rpc('inbox').then((r) => setUnread(r.requests.length + r.introsIn.length + r.challenges.filter((c) => c.incoming && c.status === 'pending').length)).catch(() => {});
+    rpc('inbox').then((r) => setUnread(r.requests.length + r.introsIn.length + r.challenges.filter((c) => c.incoming && c.status === 'pending').length + (r.tableInvites || []).length)).catch(() => {});
   }, [user && user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { count(); }, [count, loc.pathname]);
-  useEvent('inbox', (p) => { count(); if (p && p.kind === 'challenge' && !loc.pathname.startsWith('/inbox')) toast('You have a new challenge'); });
+  useEvent('inbox', (p) => {
+    count();
+    if (p && p.kind === 'challenge' && !loc.pathname.startsWith('/inbox')) toast('You have a new challenge');
+    // An invitation to a table, sent inside the arena: say who and what, wherever the member is.
+    if (p && p.kind === 'tableInvite' && !loc.pathname.startsWith('/inbox') && !loc.pathname.startsWith(`/t/${p.tableId}`)) toast(`${p.from} invited you to play ${p.gameName}.${loc.pathname.startsWith('/play') ? '' : ' It is in your Inbox and on the Play page.'}`);
+  });
   useEvent('yourTurn', (p) => { if (!loc.pathname.startsWith(`/t/${p.tableId}`)) toast('It is your move at one of your tables'); });
 
   if (loading || !user) return <Loading what="Entering the arena" />;

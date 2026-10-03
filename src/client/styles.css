@@ -94,7 +94,7 @@ img { max-width: 100%; }
 /* Exactly --tabbar tall (plus the phone's home-bar inset): the page's bottom
    padding, the toast and the messages window are all placed from that number. */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; box-sizing: border-box; height: calc(var(--tabbar) + env(safe-area-inset-bottom)); display: flex; justify-content: space-around; background: rgba(255, 255, 255, 0.97); border-top: 1px solid var(--rule); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); backdrop-filter: blur(8px); }
-.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 56px; min-height: 46px; padding: 4px 6px; color: var(--ink-soft); font-size: 0.68rem; font-weight: 600; text-decoration: none; }
+.tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex: 1 1 0; min-width: 48px; max-width: 84px; min-height: 46px; padding: 4px 2px; color: var(--ink-soft); font-size: 0.68rem; font-weight: 600; text-decoration: none; }
 .tab:hover { text-decoration: none; }
 .tab svg { width: 22px; height: 22px; }
 /* The label stays navy (orange on white is too faint for 11px text); the icon carries the orange. */
@@ -239,6 +239,21 @@ a.chatdock__title:hover { text-decoration: underline; }
 /* docked in the corner of a wide screen */
 .chatdock__launch--dock { display: none; }
 
+/* the AI guides */
+.guideicon { flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+.guide { display: flex; flex-direction: column; gap: 10px; max-width: 760px; height: calc(100dvh - var(--tabbar) - 100px - env(safe-area-inset-bottom)); min-height: 420px; }
+.guide__name { font-size: 1.2rem; }
+.guide__log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.guide__reply { display: flex; flex-direction: column; align-items: flex-start; gap: 0; max-width: 92%; }
+.guide__text { max-width: 100%; white-space: pre-wrap; background: var(--bg); border: 1px solid var(--rule); }
+.guide__acts { display: flex; gap: 14px; padding-left: 4px; }
+.guide__acts .linkbtn { min-height: 40px; color: var(--ink-soft); }
+.guide__send { display: flex; gap: 8px; align-items: flex-end; }
+.guide__send textarea.input { flex: 1; min-width: 0; min-height: 52px; max-height: 140px; resize: none; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.steps__row { display: flex; align-items: center; gap: 8px; }
+.steps__row .check span { overflow-wrap: anywhere; }
+
 /* game history */
 .histrank { flex: none; width: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: 10px; background: var(--surface-2); line-height: 1.1; }
 .histrank b { font-family: var(--display); font-weight: 900; font-size: 1.05rem; letter-spacing: -0.02em; }
@@ -307,7 +322,8 @@ a.chatdock__title:hover { text-decoration: underline; }
   .main { padding: 28px 28px 72px; } /* the bottom clears the Messages button docked in the corner */
   /* The side rail is the navy band: brand at the top, cream links, the orange marks where you are. */
   .tabbar { position: sticky; top: 0; bottom: auto; left: auto; right: auto; height: 100vh; width: 200px; flex: none; flex-direction: column; justify-content: flex-start; gap: 4px; padding: 18px 12px; border-top: 0; border-right: 0; order: -1; background: var(--vm-navy); backdrop-filter: none; }
-  .tab { flex-direction: row; gap: 10px; font-size: 0.95rem; font-weight: 600; padding: 10px 12px; border-radius: 10px; width: 100%; justify-content: flex-start; color: rgba(249, 245, 241, 0.78); }
+  /* flex: none: on a phone the tabs share the bar's width; in the rail that same rule stretched each one down the screen. */
+  .tab { flex: none; max-width: none; flex-direction: row; gap: 10px; font-size: 0.95rem; font-weight: 600; padding: 10px 12px; border-radius: 10px; width: 100%; justify-content: flex-start; color: rgba(249, 245, 241, 0.78); }
   .tab:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
   .tab.active { background: rgba(255, 255, 255, 0.12); color: #ffffff; font-weight: 700; }
   .tab.active svg { color: var(--vm-orange); }
@@ -324,8 +340,151 @@ a.chatdock__title:hover { text-decoration: underline; }
   .drawer { align-items: center; }
   .drawer__panel { border-radius: 18px; }
   .toast { bottom: 28px; }
+  .guide { height: calc(100vh - 110px); }
   .chatdock { left: auto; top: auto; right: 20px; bottom: 0; width: 350px; height: min(520px, calc(100vh - 40px)); border: 1px solid var(--rule); border-bottom: 0; border-radius: 14px 14px 0 0; overflow: hidden; box-shadow: 0 10px 40px rgba(19, 32, 57, 0.22); }
   .chatdock__launch--dock { display: inline-flex; position: fixed; z-index: 35; right: 20px; bottom: 0; min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px 12px 0 0; background: var(--vm-navy); color: var(--vm-cream); box-shadow: 0 -2px 16px rgba(19, 32, 57, 0.2); }
   .chatdock__launch--dock:hover { background: #1c2d4f; }
 }
 .rail-brand, .rail-foot { display: none; }
+
+/* ---- the table clock and the links beside it ---------------------------------------------
+   Tabular figures so the time does not jiggle as it counts. */
+.gclock { font-variant-numeric: tabular-nums; font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
+.stage__prog { gap: 6px; }
+.stage__prog .gclock { font-weight: 500; }
+.stage__narrow { display: none; }
+.stage__bar > h1 { min-width: 0; }
+/* A phone has room for the game's name or for the words, not both: "How to
+   play" becomes "?", the clock sits under the word Progress, and the link to
+   the dice record lives in the drawer's tabs. */
+@media (max-width: 559px) {
+  .stage__wide { display: none; }
+  .stage__narrow { display: inline; }
+  .stage__prog { flex-direction: column; gap: 0; line-height: 1.15; }
+  .stage__prog .gclock { font-size: 0.7rem; }
+}
+
+/* ---- the game-info drawer: how to play, key, progress, rolls -------------------------------
+   Written in the page tokens, so the same markup is dark at a table and light
+   on the Key page. */
+.ginfo { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.ginfo__tabs { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--tint); overflow-x: auto; flex: none; }
+.ginfo__tab { flex: 1 1 auto; min-height: 40px; padding: 0 8px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-soft); font: inherit; font-size: 0.85rem; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.ginfo__tab.on { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule); }
+.stage .ginfo__tab.on { background: var(--tint-2); }
+.ginfo__panel { outline: none; }
+
+.gkey__intro { margin: 0; }
+.gkey__group { display: flex; flex-direction: column; gap: 8px; }
+.gkey__gname { font-size: 1rem; margin: 6px 0 0; padding-left: 10px; border-left: 4px solid var(--gk, var(--accent-2)); }
+.gkey__count { margin-left: 6px; font-size: 0.72rem; font-weight: 500; color: var(--ink-soft); white-space: nowrap; }
+.gkey__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gkey__item { display: flex; gap: 12px; align-items: flex-start; padding: 10px; border-radius: 12px; border: 1px solid var(--rule); background: var(--tint); scroll-margin-top: 8px; }
+.gkey__item--focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-wash); }
+.gkey__art { flex: none; width: 72px; aspect-ratio: 240 / 347; border-radius: 6px; object-fit: cover; background: var(--tint-2); }
+.gkey__icon { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 10px; background: var(--tint-2); }
+.gkey__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.gkey__body p { margin: 0; font-size: 0.88rem; }
+.gkey__name { margin: 0; font-size: 0.98rem; }
+.gkey__power { font-weight: 600; }
+.gkey__trait .eyebrow, .gkey__lesson .eyebrow { margin-right: 4px; }
+.gkey__flavor { font-style: italic; color: var(--ink-soft); }
+.gkey__story { font-size: 0.88rem; border-top: 1px solid var(--rule); padding-top: 6px; }
+.gkey__story summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; color: var(--accent-ink); font-weight: 600; }
+.gkey__story summary b { color: var(--ink); }
+.gkey__story summary::before { content: '\25B8'; }
+.gkey__story[open] summary::before { content: '\25BE'; }
+.gkey__story summary::-webkit-details-marker { display: none; }
+.gkey__story p { margin-top: 4px; }
+@media (max-width: 420px) { .gkey__art { width: 56px; } }
+
+.gprog__stage { display: flex; flex-direction: column; gap: 5px; }
+.gprog__stage-label { font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
+.gprog__stage .progress { height: 8px; border-radius: 4px; }
+.gprog__seats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gprog__seat { padding: 10px; border-radius: 12px; border: 1px solid var(--rule); background: var(--tint); display: flex; flex-direction: column; gap: 8px; }
+.gprog__seat--me { border-color: var(--accent); }
+.gprog__who { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.gprog__nums { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px 12px; }
+.gprog__nums dt { font-size: 0.7rem; color: var(--ink-soft); }
+.gprog__nums dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.gprog__time { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.gprog__time .eyebrow { display: block; }
+.gprog__clock { font-variant-numeric: tabular-nums; font-size: 1.15rem; }
+
+/* The histogram. One series: thin bars, square at the baseline and rounded at
+   the data end, a 2px gap between neighbours, labels in ink (never the bar's
+   colour), the grid and the "in play" track kept quiet. */
+.hist { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+/* The bar colour is checked for each surface (dataviz validator): the page's
+   orange on white, and on the dark table a deeper gold than the accent, which
+   is too light to read as a filled bar there. */
+.stage .hist { --hist: #ba8724; }
+.hist__title { font-family: var(--display); font-weight: 700; }
+.hist__rows { display: flex; flex-direction: column; gap: 2px; }
+.hist__row { position: relative; display: grid; grid-template-columns: minmax(84px, 36%) 1fr auto; align-items: center; gap: 8px; min-height: 30px; padding: 2px 4px; border-radius: 6px; font-size: 0.82rem; }
+.hist__row:hover, .hist__row:focus-visible, .hist__col:hover, .hist__col:focus-visible { background: var(--tint); outline: none; }
+.hist__row:focus-visible, .hist__col:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+/* A long name wraps onto a second line; it is never cut off with an ellipsis. */
+.hist__label { min-width: 0; overflow-wrap: anywhere; line-height: 1.15; color: var(--ink); }
+.hist__val { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; min-width: 2ch; text-align: right; }
+.hist__track { position: relative; height: 14px; }
+.hist__bar { position: absolute; left: 0; top: 0; bottom: 0; min-width: 0; background: var(--hist, var(--accent)); border-radius: 0 4px 4px 0; transition: width 0.25s, height 0.25s; }
+.hist__cap { position: absolute; left: 0; top: 0; bottom: 0; background: var(--tint-2); border-radius: 0 4px 4px 0; }
+.hist__mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 1px; z-index: 1; }
+.hist__cols { display: flex; align-items: flex-end; gap: 2px; padding-top: 4px; border-bottom: 1px solid var(--rule); }
+.hist__col { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 0 0; border-radius: 6px 6px 0 0; font-size: 0.8rem; }
+.hist__col .hist__val { min-height: 1.2em; text-align: center; }
+.hist__col .hist__label { order: 3; padding: 3px 0 4px; color: var(--ink-soft); }
+.hist__track--up { width: min(24px, 70%); height: 120px; }
+.hist__track--up .hist__bar { top: auto; right: 0; border-radius: 4px 4px 0 0; }
+.hist__track--up .hist__mark { top: auto; bottom: 0; left: -4px; right: -4px; width: auto; height: 2px; margin: 0 0 -1px; }
+.hist__tip { position: absolute; z-index: 5; left: 8px; right: 8px; bottom: calc(100% + 4px); padding: 6px 10px; border-radius: 8px; background: var(--vm-navy); color: var(--vm-cream); border: 1px solid rgba(255, 255, 255, 0.16); font-size: 0.78rem; font-weight: 500; line-height: 1.3; text-align: left; white-space: normal; pointer-events: none; box-shadow: 0 6px 18px rgba(19, 32, 57, 0.28); }
+/* Under the row it describes, so it never covers the title; the last rows open upward to stay inside the drawer. */
+.hist__row .hist__tip { top: calc(100% + 2px); bottom: auto; }
+.hist__row:nth-last-child(-n+2):not(:nth-child(-n+2)) .hist__tip { top: auto; bottom: calc(100% + 2px); }
+.hist__col .hist__tip { top: calc(100% + 2px); bottom: auto; left: 50%; right: auto; width: max-content; max-width: 220px; transform: translateX(-50%); }
+.hist__col:first-child .hist__tip { left: 0; transform: none; }
+.hist__col:last-child .hist__tip { left: auto; right: 0; transform: none; }
+.hist__legend { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.hist__mark--key { position: static; display: inline-block; width: 2px; height: 12px; margin: 0 2px 0 0; }
+.hist__cap--key, .hist__bar--key { position: static; display: inline-block; width: 16px; height: 10px; margin: 0 2px 0 8px; border-radius: 0 3px 3px 0; }
+.hist__bar--key { margin-left: 0; }
+.hist__table { font-size: 0.82rem; }
+.hist__table summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--accent-ink); font-weight: 600; }
+.hist__table table { border-collapse: collapse; margin-top: 4px; }
+.hist__table th, .hist__table td { padding: 4px 14px 4px 0; text-align: left; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+.hist__table thead th { font-size: 0.7rem; color: var(--ink-soft); font-weight: 600; }
+.hist__table tbody th { font-weight: 500; }
+.hist__rows--time .hist__row { grid-template-columns: minmax(120px, 44%) 1fr auto; }
+
+/* A countdown inside a sentence or a button: steady width while it ticks. */
+.gcount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---- What happened: the list of every move, and the pace of play ---------------------------- */
+.gpace { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.gmoves__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.gmoves__line { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border-radius: 8px; }
+.gmoves__line:nth-child(odd) { background: var(--tint); }
+.gmoves__text { font-size: 0.9rem; font-weight: 600; }
+.gmoves__why { font-size: 0.78rem; color: var(--ink-soft); }
+.gmoves__line--deal, .gmoves__line--round { margin-top: 8px; border-left: 3px solid var(--accent-2); border-radius: 0 8px 8px 0; }
+.gmoves__line--boom .gmoves__text, .gmoves__line--bust .gmoves__text { color: var(--warn); }
+.stage__idle { color: var(--warn); font-weight: 600; }
+@media (max-width: 420px) { .ginfo__tab { font-size: 0.8rem; padding: 0 6px; } }
+
+/* The people you can invite to a table. */
+.invlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+.invlist > li { min-height: 44px; }
+
+/* Resign sits where the back arrow is while you are playing. */
+.stage__resign { gap: 5px; padding: 0 10px; }
+/* On a phone the bar holds Resign, the game's name, Progress with the clock,
+   Key and "?". Every control gives up a little padding so the name keeps
+   room to be read (the layout test measures what is left for it). */
+@media (max-width: 559px) {
+  .stage__bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .stage__bar > .btn.sm { padding: 0 9px; }
+  .stage__resign { font-size: 0.8rem; }
+  .stage__bar > h1 { font-size: 0.95rem !important; }
+}

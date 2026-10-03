@@ -139,6 +139,7 @@ export function install(A) {
         id: `${t.id}:${u.id}`, tableId: t.id, userId: u.id, gameId: t.gameId, seat: s.seat, placement: s.placement, players: n, humans,
         score, ratingBefore: before, ratingAfter: row.rating, signals, metrics: tele.metrics || {}, skillTags: tele.skillTags || [],
         takeover: tSeat.takeover || null, won, at: A.now(),
+        ms: A.gameMs(t, s.seat), // time this member put into the game (arena/time.js)
       });
 
       refreshStats(u);
@@ -332,9 +333,9 @@ export function install(A) {
     const said = {};
     for (const m of messages.filter((x) => x.tableId && ids.has(x.tableId) && !x.system)) said[m.tableId] = (said[m.tableId] || 0) + 1;
     const games = {};
-    for (const r of all) { if (!games[r.gameId]) { const g = getGame(r.gameId); games[r.gameId] = { gameId: r.gameId, gameName: g ? g.meta.name : r.gameId, icon: g ? g.meta.icon : '', played: 0, won: 0 }; } games[r.gameId].played += 1; if (r.won) games[r.gameId].won += 1; }
+    for (const r of all) { if (!games[r.gameId]) { const g = getGame(r.gameId); games[r.gameId] = { gameId: r.gameId, gameName: g ? g.meta.name : r.gameId, icon: g ? g.meta.icon : '', played: 0, won: 0, ms: 0 }; } games[r.gameId].ms += A.resultMs(r); games[r.gameId].played += 1; if (r.won) games[r.gameId].won += 1; }
     return {
-      total: all.length, wins: all.filter((r) => r.won).length,
+      total: all.length, wins: all.filter((r) => r.won).length, ms: Object.values(games).reduce((a, g) => a + g.ms, 0),
       games: Object.values(games).sort((a, b) => b.played - a.played),
       rows: page.map((r) => {
         const g = getGame(r.gameId); const t = tables.get(r.tableId);
@@ -342,7 +343,7 @@ export function install(A) {
         return {
           tableId: r.tableId, gameId: r.gameId, gameName: g ? g.meta.name : r.gameId, icon: g ? g.meta.icon : '', at: r.at,
           placement: r.placement, players: r.players, score: r.score, won: r.won, delta: r.ratingAfter - r.ratingBefore, ratingAfter: r.ratingAfter,
-          takeover: r.takeover || null, others, chatCount: said[r.tableId] || 0,
+          takeover: r.takeover || null, others, chatCount: said[r.tableId] || 0, ms: A.resultMs(r),
         };
       }),
       more: rows.length > HISTORY_PAGE,
@@ -362,7 +363,7 @@ export function install(A) {
         const r = rows.find((x) => x.userId === s.userId); const u = s.userId ? users.get(s.userId) : null;
         return { seat: s.seat, name: s.name, avatar: s.avatar, bot: !!s.bot, takeover: s.takeover || null, placement: s.placement, score: s.score, you: s.userId === me.id, username: u && !u.isBot && !u.isGuest ? u.username : null, delta: r ? r.ratingAfter - r.ratingBefore : null };
       }),
-      mine: mine ? { placement: mine.placement, won: mine.won, ratingBefore: mine.ratingBefore, ratingAfter: mine.ratingAfter, score: mine.score, takeover: mine.takeover || null } : null,
+      mine: mine ? { placement: mine.placement, won: mine.won, ratingBefore: mine.ratingBefore, ratingAfter: mine.ratingAfter, score: mine.score, takeover: mine.takeover || null, ms: A.resultMs(mine) } : null,
       watched: !mine,
       chat: messages.filter((m) => m.tableId === t.id).sort((a, b) => a.at - b.at).slice(-500).map(A.chatView),
       question: questionFor(t, g),

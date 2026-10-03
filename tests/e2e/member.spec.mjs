@@ -393,10 +393,66 @@ export default async function member({ baseUrl, browser, check, shots, adminToke
       await p1.locator('.stage[data-game="fourinarow"] .fir__col').first().waitFor();
       await p2.locator('.fir__col--can').first().waitFor();
     });
-    // Leave the game so nobody is mid-table for the rest of the spec.
-    p1.once('dialog', (d) => d.accept());
-    await p1.getByRole('button', { name: 'Leave the table' }).click();
-    await p1.waitForURL(/\/play$/);
+    // Every table has a Resign button, and it asks before it does anything.
+    await check('Resign asks "are you sure", says what each choice does, and "keep playing" changes nothing', async () => {
+      await p1.locator('.stage__bar').getByRole('button', { name: 'Resign' }).click();
+      const dlg = p1.getByRole('dialog', { name: 'Resign this game?' });
+      await dlg.waitFor();
+      await dlg.getByText('Are you sure?').waitFor();
+      for (const name of ['Yes, concede the game', 'Yes, let a bot finish for me', 'No, keep playing', 'Step away, keep my seat']) await dlg.getByRole('button', { name }).waitFor();
+      const fits = await dlg.evaluate((el) => { const r = el.getBoundingClientRect(); return el.scrollWidth <= el.clientWidth + 1 && r.left >= 0 && r.right <= window.innerWidth && [...el.querySelectorAll('button')].every((b) => b.getBoundingClientRect().height >= 40); });
+      if (!fits) throw new Error('the dialog does not fit, or a button in it is under 40px');
+      await shots(p1, 'resign-dialog-360');
+      await dlg.getByRole('button', { name: 'No, keep playing' }).click();
+      await dlg.waitFor({ state: 'detached' });
+      await p1.locator('.stage[data-game="fourinarow"] .fir__col').first().waitFor();
+      if (await p1.locator('[data-end-bar]').count()) throw new Error('the game ended after "keep playing"');
+      // Escape is "keep playing" too.
+      await p1.locator('.stage__bar').getByRole('button', { name: 'Resign' }).click();
+      await dlg.waitFor();
+      await p1.keyboard.press('Escape');
+      await dlg.waitFor({ state: 'detached' });
+      if (await p1.locator('[data-end-bar]').count()) throw new Error('the game ended on Escape');
+    });
+    await check('conceding ends the game for both: the other player is told they won', async () => {
+      await p1.locator('.stage__bar').getByRole('button', { name: 'Resign' }).click();
+      await p1.getByRole('dialog', { name: 'Resign this game?' }).getByRole('button', { name: 'Yes, concede the game' }).click();
+      await p1.locator('[data-end-bar]').waitFor();
+      await p2.locator('[data-end-bar]').waitFor();
+      await p2.getByText('You won!').first().waitFor();
+      // The Resign button is gone once there is nothing to resign from.
+      if (await p1.locator('.stage__bar').getByRole('button', { name: 'Resign' }).count()) throw new Error('Resign is still offered after the game ended');
+    });
+    await p1.goto(`${baseUrl}/play`);
+    await p2.goto(`${baseUrl}/play`);
+
+    // ---- inviting a connection to a table, inside the arena ---------------------------------
+    await check('a connection is invited from the table, is told wherever they are, and joins from the Play page', async () => {
+      await p1.locator('[data-game-card="chess"]').getByRole('button', { name: 'Host' }).click();
+      await p1.waitForURL(/\/t\//);
+      const tid = new URL(p1.url()).pathname.split('/').pop();
+      const row = p1.locator('[data-invite-connections] li').filter({ hasText: M2.name });
+      await row.waitFor();
+      await shots(p1, 'invite-connections-360', { fullPage: true });
+      await row.getByRole('button', { name: /^Invite/ }).click();
+      await row.getByText('Invited', { exact: true }).waitFor();
+      // Ben is on the Play page: the invitation appears there without a reload, with a notice.
+      const card = p2.locator('[data-table-invitation="chess"]');
+      await card.waitFor();
+      await toast(p2, /invited you to play Chess/);
+      const text = await card.textContent();
+      if (!text.includes(M1.name) || !/invited you to play/.test(text) || !/A seat is free/.test(text)) throw new Error(`the invitation reads: ${text}`);
+      await p2.locator('.tab .badge').first().waitFor();
+      await shots(p2, 'table-invitation-360');
+      await card.getByRole('button', { name: 'Join' }).click();
+      await p2.waitForURL(new RegExp(`/t/${tid}$`));
+      await p1.locator('.seat').filter({ hasText: M2.name }).waitFor();
+      await row.getByText('Here', { exact: true }).waitFor();
+      await rpc(ctx2, baseUrl, 'leaveTable', { id: tid });
+      await rpc(ctx1, baseUrl, 'leaveTable', { id: tid });
+      await p1.goto(`${baseUrl}/play`);
+      await p2.goto(`${baseUrl}/play`);
+    });
   });
 
   // ---- membership, feedback ----------------------------------------------------------------

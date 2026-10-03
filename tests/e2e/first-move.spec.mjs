@@ -52,8 +52,25 @@ export default async function firstMove({ baseUrl, browser, check, shots }) {
       await page.locator('.fir__col--can').first().waitFor();
     }
     await check.must('playing legal moves ends the game', async () => { const r = await playFirToEnd(page); return `${r.moves} moves`; });
+    // (Bug: three and a half seconds after the last move the table was simply
+    // gone. Nothing said it was about to go and the final board could not be read.)
+    await check('a finished game counts down to the debrief, and "Stay here" keeps the board up', async () => {
+      const bar = page.locator('[data-end-bar]');
+      await bar.waitFor();
+      const count = bar.locator('[data-countdown]');
+      await count.waitFor();
+      const first = await count.textContent();
+      if (!/To the debrief in [3-9]s\./.test(first)) throw new Error(`the foot reads "${first}"`);
+      await shots(page, 'game-over-360');
+      await bar.getByRole('button', { name: 'Stay here' }).click();
+      await count.waitFor({ state: 'detached' });
+      await page.waitForTimeout(7000);
+      if (/\/debrief\//.test(page.url())) throw new Error('the table left for the debrief after "Stay here"');
+      await page.locator('.fir').first().waitFor();
+      return first.trim();
+    });
     await check('the finished board offers the debrief', async () => {
-      if (!/\/debrief\//.test(page.url())) { await shots(page, 'game-over-360'); await page.getByRole('button', { name: 'See the debrief' }).click(); }
+      await page.getByRole('button', { name: 'See the debrief' }).click();
       await page.waitForURL(/\/debrief\//);
     });
     await check.must('the debrief shows the result, the standings and one question', async () => {

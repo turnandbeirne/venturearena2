@@ -97,9 +97,11 @@ async function main() {
     PORT: String(port), NODE_ENV: 'test', PUBLIC_URL: baseUrl,
     BOT_DELAY_MIN_MS: '80', BOT_DELAY_MAX_MS: '160', QUICK_MATCH_BOT_AFTER_MS: '1500',
     ADMIN_TOKEN,
+    // The AI guides answer from a canned stand-in: a test never calls Anthropic.
+    COACH_FAKE: '1',
   };
   // The memory store, whatever the shell has set: a test never touches a real database or data file.
-  for (const k of ['DATABASE_URL', 'DATA_FILE', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PRICE_MEMBER', 'PRICE_VIP', 'PRICE_CEO', 'RESEND_API_KEY', 'VA_NO_AUTOSTART', 'INSTANT_BOTS', 'GATE_CUSTOM_SETTINGS']) delete env[k];
+  for (const k of ['DATABASE_URL', 'DATA_FILE', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'PRICE_MEMBER', 'PRICE_VIP', 'PRICE_CEO', 'RESEND_API_KEY', 'ANTHROPIC_API_KEY', 'GUIDE_MODEL', 'VA_NO_AUTOSTART', 'INSTANT_BOTS', 'GATE_CUSTOM_SETTINGS']) delete env[k];
 
   const serverLog = [];
   const child = spawn(process.execPath, [SERVER], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });

@@ -96,7 +96,7 @@ export function arenaMiddleware(A, config) {
       if (p === '/robots.txt') { ctx.type = 'text/plain; charset=utf-8'; ctx.body = 'User-agent: *\nDisallow: /\n'; return; }
     }
 
-    if (p === '/healthz') { ctx.body = { ok: true, store: config.storeKind, uptime: Math.round(process.uptime()) }; return; }
+    if (p === '/healthz') { ctx.body = { ok: true, store: config.storeKind, guides: config.anthropicApiKey || config.guidesFake ? 'on' : 'off', uptime: Math.round(process.uptime()) }; return; }
 
     // ---- API -----------------------------------------------------------------
     if (p.startsWith('/api/')) {

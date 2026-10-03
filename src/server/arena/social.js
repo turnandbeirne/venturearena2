@@ -15,7 +15,7 @@ const CHALLENGE_TTL_MS = 48 * 3600 * 1000;
 const pairId = (a, b) => [a, b].sort().join(':');
 
 export function install(A) {
-  const { users, connections, messages, threadReads, introductions, challenges, invites, tables, results, reports } = A.c;
+  const { users, connections, messages, threadReads, introductions, challenges, invites, tableInvites, tables, results, reports } = A.c;
 
   // ---- connections -------------------------------------------------------------------
   const conn = (a, b) => connections.get(pairId(a, b));
@@ -167,6 +167,7 @@ export function install(A) {
       introsIn: intros.filter((i) => i.toId === me.id && i.status === 'pending').map(introView),
       introsOut: intros.filter((i) => i.fromId === me.id).slice(0, 20).map(introView),
       challenges: challengeList(me),
+      tableInvites: tableInvitesFor(me),
     };
   };
 
@@ -306,6 +307,85 @@ export function install(A) {
     A.limit(`invite:${me.id}`, 60, 3600000);
     invites.put({ id: A.id(), inviterId: me.id, channel, contact: clean(args.contact, 120), name: clean(args.name, 40), tableCode: clean(args.tableCode, 16), code: A.referralCode(me), at: A.now() });
     return { code: me.referralCode };
+  };
+
+  // ---- table invitations: ask a connection to your table, inside the arena ---------------------
+  // No email, no text, no link to copy: the invitation appears in the other
+  // member's Inbox and on their Play page, and a notice reaches them wherever
+  // they are in the arena. Only people you are connected to can be invited
+  // this way, so an invitation is never a way to reach a stranger, and the
+  // adult / under-18 rule (A.contactOk) applies as it does to a message.
+  const liveTable = (t) => !!t && (t.status === 'open' || t.status === 'playing');
+  function tableInviteView(i, me) {
+    const t = tables.get(i.tableId); const g = getGame(i.gameId);
+    return {
+      tableId: i.tableId, gameId: i.gameId, gameName: g ? g.meta.name : i.gameId, icon: g ? g.meta.icon : '', at: i.at,
+      from: A.card(users.get(i.fromId), me), started: t.status === 'playing',
+      seatFree: t.status === 'open' && t.players.length < (g ? g.meta.seats.max : 2), people: t.players.length + t.observers.length,
+    };
+  }
+  function tableInvitesFor(me) {
+    return tableInvites.filter((i) => i.toId === me.id && i.status === 'pending')
+      .filter((i) => { const t = tables.get(i.tableId); return liveTable(t) && !t.players.includes(me.id) && !t.observers.includes(me.id) && users.get(i.fromId) && !blocked(me.id, i.fromId); })
+      .sort((a, b) => b.at - a.at).slice(0, 20).map((i) => tableInviteView(i, me));
+  }
+  const atTable = (t, uid) => t.players.includes(uid) || t.observers.includes(uid);
+  const mustBeAt = (me, id) => {
+    const t = tables.get(id);
+    if (!t) throw A.err('Table not found. It may have closed.', 404);
+    if (!atTable(t, me.id)) throw A.err('Only people at the table can invite others to it.', 403);
+    return t;
+  };
+
+  /** The people I could invite to this table: my connections, online ones first. */
+  A.rpc.tableInvitables = (me, args) => {
+    // A table that has just closed, or that this member has just left, is an
+    // empty list and not an error: the page asks again on every change to the
+    // table, and the answer tells an outsider nothing.
+    const t = tables.get(args.id);
+    if (!t || !atTable(t, me.id)) return { people: [], guest: !!me.isGuest, gone: true };
+    const out = [];
+    for (const c of connections.filter((x) => x.status === 'accepted' && (x.requesterId === me.id || x.addresseeId === me.id))) {
+      const o = users.get(c.requesterId === me.id ? c.addresseeId : c.requesterId);
+      if (!o || o.isBot || o.closed || !A.contactOk(me, o)) continue;
+      const inv = tableInvites.get(`${t.id}:${o.id}`);
+      out.push({ card: A.card(o, me), online: A.isOnline(o), here: atTable(t, o.id), invited: !!inv && inv.status === 'pending', declined: !!inv && inv.status === 'declined' });
+    }
+    out.sort((a, b) => Number(b.online) - Number(a.online) || a.card.displayName.localeCompare(b.card.displayName));
+    return { people: out.slice(0, 100), guest: !!me.isGuest };
+  };
+
+  A.rpc.inviteToTable = (me, args) => {
+    if (me.isGuest) throw A.err('Create a free account to connect with people and invite them to your tables.', 403);
+    const t = mustBeAt(me, args.id);
+    if (!liveTable(t)) throw A.err('That game is over.');
+    const to = A.mustUser(args.userId);
+    if (to.id === me.id) throw A.err('You are already here.');
+    if (to.isBot || blocked(me.id, to.id) || !accepted(me.id, to.id) || !A.contactOk(me, to)) throw A.err('You can invite people you are connected to.', 403);
+    if (atTable(t, to.id)) throw A.err(`${to.displayName} is already at this table.`);
+    A.limit(`tinvite:${me.id}`, 40, 3600000);
+    const id = `${t.id}:${to.id}`;
+    const old = tableInvites.get(id);
+    // Asking twice is not nagging twice: a pending invitation is left as it is.
+    if (old && old.status === 'pending') return { ok: true, already: true };
+    if (old && old.status === 'declined') throw A.err(`${to.displayName} passed on this table.`);
+    const g = getGame(t.gameId);
+    tableInvites.put({ id, tableId: t.id, fromId: me.id, toId: to.id, gameId: t.gameId, status: 'pending', at: A.now() });
+    A.emit(`u:${to.id}`, 'inbox', { kind: 'tableInvite', tableId: t.id, from: me.displayName, gameName: g ? g.meta.name : t.gameId });
+    return { ok: true };
+  };
+
+  A.rpc.answerTableInvite = (me, args) => {
+    const i = tableInvites.get(`${args.tableId}:${me.id}`);
+    if (!i || i.status !== 'pending') throw A.err('That invitation is no longer open.', 404);
+    if (!args.accept) { i.status = 'declined'; i.answeredAt = A.now(); tableInvites.put(i); return { ok: true }; }
+    const t = tables.get(i.tableId);
+    if (!liveTable(t)) { i.status = 'expired'; tableInvites.put(i); throw A.err('That table has closed.'); }
+    // The invitation is the way in, private table or not. A seat if one is
+    // free and the game has not started; otherwise a place to watch.
+    A.joinTable(me, t, 'player');
+    i.status = 'joined'; i.answeredAt = A.now(); tableInvites.put(i);
+    return { table: A.tableView(t, me), seated: t.players.includes(me.id) };
   };
 
   // ---- presence and history -----------------------------------------------------------------------

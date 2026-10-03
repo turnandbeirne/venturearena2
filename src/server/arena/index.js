@@ -8,6 +8,8 @@ import { install as play } from './play.js';
 import { install as social } from './social.js';
 import { install as matching } from './matching.js';
 import { install as community } from './community.js';
+import { install as guides } from './guides.js';
+import { install as time } from './time.js';
 import { install as runner } from '../bots/runner.js';
 
 export function createArena(opts) {
@@ -19,6 +21,8 @@ export function createArena(opts) {
   social(A);
   matching(A);
   community(A);
+  guides(A);
+  time(A);
   runner(A);
   if (A.bgio) A.bgio.db.onState((matchID, state, deltalog) => A.hooks.matchState(matchID, state, deltalog));
 

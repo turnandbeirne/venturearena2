@@ -62,8 +62,15 @@ function ArenaRibbon({ people, seatLabel, isHost, watching, finished, shell, onD
   return (
     <div style={style}>
       <span>{'\u{1F3DF}️'} VentureArena table {'·'} {people} {people === 1 ? 'player' : 'players'}{watching ? ' · you are watching' : seatLabel ? ` · you are ${seatLabel}` : ''}{isHost ? ' · host' : ''}</span>
-      <span style={{ opacity: 0.7 }}>live</span>
-      <button type="button" style={link} onClick={shell.openChat}>Table talk{shell.unread > 0 ? ` (${shell.unread})` : ''}</button>
+      <span style={{ opacity: 0.7 }}>live{shell.clock ? <> {'·'} {shell.clock}</> : null}</span>
+      <span style={{ marginLeft: 'auto', display: 'flex', gap: '4px 14px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {/* The arena's own drawer: how the game is going, the key to everything on the board, the luck so far. */}
+        {shell.openInfo && (shell.tabs || []).filter((t) => t.id !== 'help').map((t) => (
+          <button key={t.id} type="button" style={{ ...link, marginLeft: 0 }} onClick={() => shell.openInfo(t.id)}>{t.label}</button>
+        ))}
+        {shell.canResign && <button type="button" style={{ ...link, marginLeft: 0 }} onClick={shell.resign}>Resign</button>}
+        <button type="button" style={{ ...link, marginLeft: 0 }} onClick={shell.openChat}>Table talk{shell.unread > 0 ? ` (${shell.unread})` : ''}</button>
+      </span>
     </div>
   );
 }

@@ -175,14 +175,28 @@ export default async function layout({ baseUrl, browser, check, shots }) {
               await dlg.waitFor();
               const q = dlg.locator('.vb__q').first();
               await q.waitFor();
-              const a = await q.evaluate((el) => { const r = el.getBoundingClientRect(); return { href: el.href, target: el.target, rel: el.rel, text: el.textContent, label: el.getAttribute('aria-label'), inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight, round: getComputedStyle(el).borderRadius }; });
-              if (!/^https:\/\/venturemaker\.org\/ventureboom\/(hof|dynamics)\/[a-z0-9-]+$/.test(a.href)) throw new Error(`unexpected link ${a.href}`);
-              if (a.target !== '_blank' || !/noopener/.test(a.rel)) throw new Error('the link must open a new tab without handing over the page');
+              const a = await q.evaluate((el) => { const r = el.getBoundingClientRect(); return { tag: el.tagName, text: el.textContent, label: el.getAttribute('aria-label'), inside: r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight, round: getComputedStyle(el).borderRadius }; });
+              if (a.tag !== 'BUTTON') throw new Error(`the "?" is a <${a.tag.toLowerCase()}>: at a table it opens the Key, it does not leave the site`);
               if (a.text !== '?' || !/real-world story/.test(a.label || '')) throw new Error(`label: ${a.text} / ${a.label}`);
               if (!a.inside) throw new Error('the "?" is off screen');
               await shots(page, `ventureboom-card-open-${vpName(vp)}`);
-              await dlg.getByRole('button', { name: 'Close' }).click();
-              await dlg.waitFor({ state: 'detached' });
+              // The "?" opens the Key at this card, with its true story open.
+              // (It used to link to a page on venturemaker.org that did not exist.)
+              const cardName = (await dlg.getByRole('heading').first().textContent()).trim();
+              await q.click();
+              const keyDlg = page.getByRole('dialog', { name: /Key to VentureBoom/ });
+              await keyDlg.waitFor();
+              if (await page.getByRole('dialog').count() !== 1) throw new Error('the Key opened on top of the card instead of replacing it');
+              const f = await keyDlg.locator('.gkey__item--focus').evaluate((el) => {
+                const d = el.querySelector('details'); const panel = el.closest('.drawer__panel'); const r = el.getBoundingClientRect(); const pr = panel.getBoundingClientRect();
+                return { name: el.querySelector('.gkey__name').firstChild.textContent, open: !!(d && d.open), story: d ? d.querySelector('p').textContent.length : 0, who: d ? d.querySelector('summary b').textContent : '', top: Math.round(r.top - pr.top), panelH: Math.round(pr.height), img: !!el.querySelector('img') };
+              });
+              if (f.name !== cardName) throw new Error(`opened at "${f.name}", not at "${cardName}"`);
+              if (!f.open || f.story < 120 || !f.who) throw new Error(`the story is not open: ${JSON.stringify(f)}`);
+              if (f.top < 0 || f.top > f.panelH - 60) throw new Error(`the card's entry is not in view (${f.top}px into a ${f.panelH}px panel)`);
+              await shots(page, `ventureboom-key-at-card-${vpName(vp)}`);
+              await page.keyboard.press('Escape');
+              await page.getByRole('dialog').waitFor({ state: 'detached' });
               await page.getByRole('button', { name: 'Clear selection' }).click();
             });
             // (Bug: Hard Pass and Hostile Takeover have four-line rules, and
@@ -211,7 +225,7 @@ export default async function layout({ baseUrl, browser, check, shots }) {
                 if (m && m.nameLow > 0.5) throw new Error(`${name}: the name ends ${m.nameLow}px too low in the header, where a picture may reach`);
                 if (m && (m.over > 0 || m.below > 0)) throw new Error(`${name}: the rule ${m.over > 0 ? `covers ${m.over}px of the picture` : `hangs ${m.below}px below the card`}`);
                 if (m && m.nameWide > 0) throw new Error(`${name}: the name is ${m.nameWide}px wider than the header`);
-                await dlg.getByRole('button', { name: 'Close' }).click();
+                await dlg.getByRole('button', { name: 'Close', exact: true }).click();
                 await dlg.waitFor({ state: 'detached' });
                 await page.getByRole('button', { name: 'Clear selection' }).click();
               }
@@ -238,6 +252,141 @@ export default async function layout({ baseUrl, browser, check, shots }) {
               await page.getByRole('button', { name: 'Turn sounds on' }).waitFor();
               await page.getByRole('button', { name: 'Turn sounds on' }).click();
               await page.getByRole('button', { name: 'Mute sounds' }).waitFor();
+            });
+          }
+          // ---- progress, key, how to play, and what the dice or the deck have done -------------
+          const bar = m.fullscreen ? page : page.locator('.stage__bar');
+          const progBtn = bar.getByRole('button', { name: /^Progress/ });
+          await check(`${tag}: Progress, Key and How to play are on screen, with a clock that runs`, async () => {
+            await progBtn.waitFor();
+            await bar.getByRole('button', { name: 'Key', exact: true }).waitFor();
+            if (!m.fullscreen) await bar.getByRole('button', { name: 'How to play' }).waitFor();
+            const clock = page.locator('[data-clock]').first();
+            const t1 = await clock.textContent();
+            if (!/^\d+:\d\d$/.test(t1)) throw new Error(`the clock reads "${t1}"`);
+            await sleep(1150);
+            const t2 = await clock.textContent();
+            if (t1 === t2) throw new Error(`the clock stood still at ${t1}`);
+            if (m.fullscreen) return `${t1} then ${t2}`;
+            const b = await page.evaluate(() => {
+              const row = document.querySelector('.stage__bar'); const vw = window.innerWidth;
+              const out = [...row.children].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && (r.left < -0.5 || r.right > vw + 0.5); }).map((el) => el.textContent.trim());
+              const h = row.querySelector('h1').getBoundingClientRect();
+              const kids = [...row.children].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0).sort((x, y) => x.left - y.left);
+              let overlap = 0; for (let i = 1; i < kids.length; i++) overlap = Math.max(overlap, kids[i - 1].right - kids[i].left);
+              return { out, name: Math.round(h.width), overlap: Math.round(overlap), rowH: Math.round(row.getBoundingClientRect().height) };
+            });
+            if (b.out.length) throw new Error(`off screen: ${b.out.join(', ')}`);
+            if (b.overlap > 0) throw new Error(`controls overlap by ${b.overlap}px`);
+            if (b.name < 70) throw new Error(`only ${b.name}px left for the game's name`);
+            if (b.rowH > 60) throw new Error(`the bar is ${b.rowH}px tall: it wrapped`);
+            return `${t1} then ${t2}; ${b.name}px for the name`;
+          });
+          await check(`${tag}: the info drawer shows progress for every seat, the key, and each tab fits`, async () => {
+            await progBtn.click();
+            const dlg = page.getByRole('dialog');
+            await dlg.waitFor();
+            const title = await dlg.getByRole('heading').first().textContent();
+            if (!/progress/i.test(title)) throw new Error(`the drawer is titled "${title}"`);
+            const seats = await dlg.locator('[data-progress-seat]').count();
+            const want = m.fullscreen ? 2 : await page.locator('.stage__seat').count();
+            if (seats < want) throw new Error(`${seats} seats in Progress, ${want} at the table`);
+            await dlg.locator('[role="progressbar"]').waitFor();
+            await dlg.getByText('This game').waitFor();
+            await dlg.getByText(/^Your time in /).waitFor();
+            const fits = async (what) => {
+              const o = await dlg.evaluate((el) => {
+                const pr = el.getBoundingClientRect();
+                const wide = [...el.querySelectorAll('*')].filter((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && !x.closest('.ginfo__tabs') && (r.right > pr.right + 0.5 || r.left < pr.left - 0.5); }).map((x) => `${x.tagName.toLowerCase()}.${String(x.className).split(' ')[0]}`);
+                return { sw: el.scrollWidth, cw: el.clientWidth, wide: wide.slice(0, 4), vw: window.innerWidth, right: Math.round(pr.right), left: Math.round(pr.left) };
+              });
+              if (o.sw > o.cw + 1 || o.wide.length) throw new Error(`${what}: wider than the drawer (${o.sw}/${o.cw}) ${o.wide.join(', ')}`);
+              if (o.left < 0 || o.right > o.vw) throw new Error(`${what}: the drawer is off screen`);
+            };
+            await fits('Progress');
+            await shots(page, `info-progress-${g.id}-${vpName(vp)}`);
+            const names = await dlg.getByRole('tab').allTextContents();
+            if (names[0] !== 'Rules' || !names.includes('Key') || !names.includes('Progress')) throw new Error(`tabs: ${names.join(', ')}`);
+            if (!m.fullscreen && !names.includes('Moves')) throw new Error(`no Moves tab: ${names.join(', ')}`);
+            const strip = await dlg.locator('.ginfo__tabs').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+            if (strip.sw > strip.cw + 1) throw new Error(`the tabs do not fit: ${strip.sw}px of tabs in ${strip.cw}px`);
+            for (const name of names) {
+              await dlg.getByRole('tab', { name, exact: true }).click();
+              if (name === 'Key') {
+                await dlg.locator('[data-key-item]').nth(3).waitFor();
+                if (g.id === 'ventureboom') {
+                  await dlg.locator('.gkey__art').first().waitFor();
+                  const n = await dlg.locator('[data-key-item]').count();
+                  if (n !== 48) throw new Error(`${n} entries in the VentureBoom key: 43 card names and 5 moves are 48`);
+                  await page.waitForFunction(() => { const im = document.querySelector('.gkey__art'); return im && im.complete && im.naturalWidth > 0; });
+                }
+              } else if (name === 'Rules') {
+                await dlg.locator('ol li').first().waitFor();
+              } else if (name === 'Moves') {
+                await dlg.getByRole('group', { name: 'Pace of play' }).waitFor();
+                const pressed = await dlg.getByRole('group', { name: 'Pace of play' }).locator('[aria-pressed="true"]').allTextContents();
+                if (pressed.join() !== 'Steady') throw new Error(`pace shows as "${pressed.join()}"`);
+              } else if (name !== 'Progress') {
+                // the record of the dice, or of the deck
+                await dlg.locator('.hist').first().waitFor();
+                const h = await dlg.locator('.hist').first().evaluate((el) => {
+                  const bars = [...el.querySelectorAll('.hist__bar')].map((b) => b.getBoundingClientRect());
+                  const labels = [...el.querySelectorAll('.hist__label')];
+                  return { bars: bars.length, thick: Math.max(0, ...bars.map((r) => Math.min(r.width || 99, r.height || 99))), cut: labels.filter((l) => l.scrollWidth > l.clientWidth + 1).map((l) => l.textContent), table: !!el.querySelector('details table') };
+                });
+                if (h.bars < 2) throw new Error(`only ${h.bars} bars`);
+                if (h.thick > 24) throw new Error(`bars are ${h.thick}px thick`);
+                if (h.cut.length) throw new Error(`labels cut off: ${h.cut.join(', ')}`);
+                if (!h.table) throw new Error('no table view of the numbers');
+                await dlg.locator('.hist__row, .hist__col').first().focus();
+                await dlg.locator('.hist__tip').waitFor();
+              }
+              await fits(name);
+              if (name !== 'Progress') await shots(page, `info-${name.toLowerCase().replace(/\W+/g, '-')}-${g.id}-${vpName(vp)}`);
+            }
+            await page.keyboard.press('Escape');
+            await dlg.waitFor({ state: 'detached' });
+            if (!(await progBtn.evaluate((el) => el === document.activeElement))) throw new Error('focus did not return to the Progress button');
+            return `tabs: ${names.join(', ')}`;
+          });
+          if (g.id === 'ventureboom') {
+            // (Bug: three robots played a card each inside two seconds and the
+            // feed showed the last three lines at once. Nobody could read what
+            // had been done to them.)
+            await check(`${tag}: what just happened is on the table with what it means, and opens the list of every move`, async () => {
+              const now = page.locator('.vb__now').first();
+              await now.waitFor({ timeout: 15000 });
+              const a = await now.evaluate((el) => {
+                const r = el.getBoundingClientRect(); const side = el.closest('.vb__side').getBoundingClientRect();
+                const cut = [...el.children].filter((c) => { const b = c.getBoundingClientRect(); return b.height > 0 && (b.bottom > side.bottom + 0.5 || b.top < side.top - 0.5 || b.right > side.right + 0.5); }).map((c) => c.className);
+                return { tag: el.tagName, text: el.querySelector('.vb__now-text').textContent, h: Math.round(r.height), cut };
+              });
+              if (a.tag !== 'BUTTON') throw new Error('the announcement is not a button');
+              if (a.text.length < 8) throw new Error(`the announcement reads "${a.text}"`);
+              if (a.cut.length) throw new Error(`cut off by the table: ${a.cut.join(', ')}`);
+              if (a.h < 36) throw new Error(`only ${a.h}px tall: too small to tap`);
+              await now.click();
+              const dlg = page.getByRole('dialog', { name: /what happened/ });
+              await dlg.waitFor();
+              const n = await dlg.locator('[data-move]').count();
+              if (n < 1) throw new Error('the list of moves is empty');
+              const last = await dlg.locator('[data-move]').last().evaluate((el) => { const r = el.getBoundingClientRect(); const p = el.closest('.drawer__panel').getBoundingClientRect(); return r.bottom <= p.bottom + 1 && r.top >= p.top; });
+              if (!last) throw new Error('the list did not open at the newest move');
+              await shots(page, `ventureboom-moves-${vpName(vp)}`);
+              await page.keyboard.press('Escape');
+              await dlg.waitFor({ state: 'detached' });
+              return `"${a.text}", ${n} moves listed`;
+            });
+            await check(`${tag}: the pace button slows the table down, and the server agrees`, async () => {
+              const btn = page.getByRole('button', { name: /^Pace of play: Steady/ });
+              await btn.waitFor();
+              await btn.click();
+              await page.getByRole('button', { name: /^Pace of play: Slow/ }).waitFor();
+              const id = new URL(page.url()).pathname.split('/').pop();
+              const t = await rpc(ctx, baseUrl, 'table', { id });
+              if (t.table.pace !== 'slow') throw new Error(`the server says ${t.table.pace}`);
+              await page.getByRole('button', { name: /^Pace of play: Slow/ }).click();
+              await page.getByRole('button', { name: /^Pace of play: Quick/ }).waitFor();
             });
           }
           check.info(`${tag}: measured`, `scrollWidth ${m.scrollWidth}/${m.innerWidth}${m.board ? `, board ${m.board.w}x${m.board.h}` : ''}, smallest button ${m.smallest ? `${m.smallest.min}px ${m.smallest.what}` : 'none'}${m.fullscreen ? ', fullscreen' : ''}`);
@@ -302,7 +451,14 @@ export default async function layout({ baseUrl, browser, check, shots }) {
     ['inbox', '/inbox', 'h1', 'member', async (p) => { await p.getByText('Connection requests').waitFor(); }],
     ['inbox-thread', () => `/inbox/${other.id}`, '.chat__log', 'member'],
     ['me', '/me', '[data-profile-score]', 'member', async (p) => { await p.getByText('Arena record').waitFor(); }],
-    ['history', '/history', '[data-history-row]', 'member'],
+    ['guides', '/guides', '[data-guide]', 'member', async (p) => { await p.locator('[data-guides]').waitFor(); await p.getByLabel('A new next step').fill('Call three freelancers about invoicing'); await p.getByRole('button', { name: 'Add' }).click(); await p.locator('.steps__row').first().waitFor(); }],
+    ['guide-empty', '/guides/mentor', '.guide__log', 'member', async (p) => { await p.getByText('Try asking').waitFor(); }],
+    ['guide-conversation', () => `/guides/coach?game=${finishedId}`, '.guide__log', 'member', async (p) => { await p.getByText('About your').waitFor(); await p.getByLabel('Ask The Coach').fill('What should I take from that game? I rushed every move and I am not sure whether that was the problem or whether I just had bad luck with the columns.'); await p.getByRole('button', { name: 'Ask' }).click(); await p.locator('.guide__reply').first().waitFor(); }],
+    ['history', '/history', '[data-history-row]', 'member', async (p) => { await p.locator('[data-time-total]').waitFor(); }],
+    ['key-ventureboom', '/key/ventureboom', '[data-key-item]', 'member', async (p) => { await p.locator('.gkey__art').first().waitFor(); await p.locator('[data-key-item="prototype-pete"] summary').click(); await p.locator('[data-key-item="prototype-pete"] details p').waitFor(); }],
+    ['key-ventureboom-set', '/key/ventureboom#key-angel-annie', '.gkey__item--focus', 'member', async (p) => { await p.locator('.gkey__item--focus details[open]').waitFor(); }],
+    ['key-ventureflow', '/key/ventureflow', '[data-key-item]', 'member'],
+    ['key-chess', '/key/chess', '[data-key-item]', 'member'],
     ['history-record', () => `/history/${finishedId}`, '.histchat', 'member', async (p) => { await p.getByText('Good game. I should have taken').waitFor(); }],
     ['chat-window', '/home', '[data-quiz-option]', 'member', async (p) => { await p.locator('.chatdock__launch--bar').click(); await p.locator('.chatdock__person').first().waitFor(); }],
     ['chat-conversation', '/play', '[data-game-card]', 'member', async (p) => { await p.locator('.chatdock__launch--bar').click(); await p.locator('.chatdock__person', { hasText: 'Ada Lovelace' }).click(); await p.locator('.chatdock__log .bubble').first().waitFor(); }],
@@ -568,6 +724,58 @@ export default async function layout({ baseUrl, browser, check, shots }) {
       await pctx.close();
     }
     await cctx.close();
+  });
+
+  // ---- the AI guides -------------------------------------------------------------------------------------
+  await check.section('guides', async () => {
+    const gctx = await openContext(browser, { viewport: DESKTOP });
+    await memberSession(gctx, baseUrl, 'Guide Tester');
+    const page = await gctx.newPage();
+    const w = watch(page);
+    await page.goto(`${baseUrl}/guides`);
+    await check('the Guides tab lists five AI guides, each labelled as AI, with today\'s allowance', async () => {
+      await page.locator('[data-guide]').nth(4).waitFor();
+      const m = await page.evaluate(() => ({ n: document.querySelectorAll('[data-guide]').length, ai: [...document.querySelectorAll('[data-guide]')].every((c) => /^AI /.test(c.querySelector('.tiny').innerText)), left: document.querySelector('[data-guides="on"]').dataset.left, notice: /They can be wrong/.test(document.body.innerText) && /sent to Anthropic/.test(document.body.innerText) }));
+      if (m.n !== 5 || !m.ai || m.left !== '5' || !m.notice) throw new Error(JSON.stringify(m));
+    });
+    await page.locator('[data-guide="historian"]').click();
+    await check('asking a starter question shows the question, a thinking line, then the reply, and uses one message', async () => {
+      await page.getByText('Try asking').waitFor();
+      await page.locator('.choice').first().click();
+      await page.locator('.guide__reply').first().waitFor({ timeout: 8000 });
+      const m = await page.evaluate(() => ({ mine: document.querySelectorAll('.guide__log .bubble.mine').length, replies: document.querySelectorAll('.guide__reply').length, left: document.querySelector('[data-left]').dataset.left, wraps: getComputedStyle(document.querySelector('.guide__text')).whiteSpace, wide: document.querySelector('.guide__log').scrollWidth > document.querySelector('.guide__log').clientWidth + 1 }));
+      if (m.mine !== 1 || m.replies !== 1 || m.left !== '4' || m.wraps !== 'pre-wrap' || m.wide) throw new Error(JSON.stringify(m));
+    });
+    await check('Enter sends, Shift+Enter makes a new line, and the conversation is still there after a reload', async () => {
+      const box = page.getByLabel('Ask The Historian');
+      await box.fill('First line'); await box.press('Shift+Enter'); await box.pressSequentially('second line');
+      if ((await box.inputValue()) !== 'First line\nsecond line') throw new Error(`the box holds ${JSON.stringify(await box.inputValue())}`);
+      await box.press('Enter');
+      await page.locator('.guide__reply').nth(1).waitFor({ timeout: 8000 });
+      await page.reload();
+      await page.locator('.guide__reply').nth(1).waitFor();
+    });
+    await shots(page, 'guide-conversation-1280x800');
+    await check('the guides are in the side rail, and the messages allowance is on the Membership page', async () => {
+      await page.getByRole('link', { name: 'Guides', exact: true }).waitFor();
+      // (Bug: the rule that shares the phone's tab bar between six tabs also stretched each rail link down the screen.)
+      const rail = await page.evaluate(() => [...document.querySelectorAll('.tabbar .tab')].map((t) => Math.round(t.getBoundingClientRect().height)));
+      if (rail.length !== 6 || Math.max(...rail) > 56) throw new Error(`rail links are ${rail.join(', ')} px tall`);
+      await page.goto(`${baseUrl}/membership`);
+      await page.getByText('AI guides: 5 messages a day').waitFor();
+    });
+    await check('guides: no console errors or failed requests', w.problems.length === 0, w.problems.join(' | '));
+    await gctx.close();
+
+    const guestCtx = await openContext(browser, { viewport: PHONE });
+    await guestSession(guestCtx, baseUrl);
+    const gp = await guestCtx.newPage();
+    await gp.goto(`${baseUrl}/guides/coach`);
+    await check('a guest sees what the guides are and is offered an account, with no box to type in', async () => {
+      await gp.getByText('The guides are for members.').waitFor();
+      if (await gp.locator('.guide__send').count()) throw new Error('a guest was given the question box');
+    });
+    await guestCtx.close();
   });
 
   // ---- the age question for an account made before it existed ------------------------------------------

@@ -83,7 +83,9 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 /* ---- table centre ---- */
 .vb__table { position: relative; flex: 1 1 0; min-height: calc(var(--u) * 3.7); display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; container: vbtable / size; border-radius: 14px; background: radial-gradient(ellipse at 30% 40%, rgba(47, 183, 166, 0.16), transparent 70%), rgba(255, 255, 255, 0.04); border: 1px solid var(--line); overflow: hidden; }
 /* Sound on / off: in the table's top corner, where it costs no height. */
-.vb__sound { position: absolute; top: 4px; right: 4px; z-index: 2; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: rgba(11, 21, 48, 0.55); color: var(--cream); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+/* Sound and pace: a narrow column at the right of the table. (They used to float over the corner, on top of the feed.) */
+.vb__tools { flex: none; display: flex; flex-direction: column; gap: 4px; justify-content: flex-start; }
+.vb__sound { flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: rgba(11, 21, 48, 0.55); color: var(--cream); font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .vb__sound[aria-pressed="false"] { opacity: 0.75; }
 .vb__table-main { flex: 1 1 0; min-height: 0; display: flex; gap: 8px; align-items: stretch; }
 /* The Exit areas only appear when the table is tall enough to hold them
@@ -105,6 +107,30 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 /* While an action is pending the panel has priority: anything that does not fit is clipped from the top. */
 .vb__side--busy { justify-content: flex-end; }
 .vb__feed { flex: none; display: flex; flex-direction: column; gap: 3px; }
+/* What just happened: the sentence, then what it means. One at a time, held
+   long enough to read (hooks.js useAnnouncer). The whole thing is a button
+   that opens the list of every move. */
+.vb__now { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: 100%; min-height: 40px; padding: 5px 8px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: var(--cream); font: inherit; text-align: left; animation: vb-line 0.3s ease-out; }
+button.vb__now { cursor: pointer; }
+button.vb__now:hover, button.vb__now:focus-visible { background: rgba(255, 255, 255, 0.11); }
+.vb__now-text { font-size: 0.86rem; font-weight: 700; line-height: 1.2; }
+.vb__now-why { font-size: 0.72rem; line-height: 1.25; color: rgba(246, 241, 231, 0.82); }
+.vb__now-more { font-size: 0.66rem; color: var(--gold-2); font-weight: 600; }
+.vb__now--boom .vb__now-text, .vb__now--bust .vb__now-text { color: #ffb4a6; }
+.vb__now--exit .vb__now-text { color: var(--gold-2); }
+[data-compact] .vb__now-more { display: none; }
+/* The sentence is never cut short. The explanation is clamped to what the
+   table has room for; the full text is one tap away in the list of moves. */
+.vb__now-text, .vb__now-why { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.vb__now-text { -webkit-line-clamp: 3; }
+.vb__now-why { -webkit-line-clamp: 4; }
+@container vbtable (max-height: 150px) {
+  .vb__now { padding: 3px 7px; gap: 1px; min-height: 36px; }
+  .vb__now-text { font-size: 0.8rem; }
+  .vb__now-why { font-size: 0.68rem; -webkit-line-clamp: 3; }
+  .vb__now-more { display: none; }
+}
+@container vbtable (max-height: 96px) { .vb__now-why { -webkit-line-clamp: 2; } }
 .vb__line { font-size: 0.76rem; color: var(--muted); animation: vb-line 0.3s ease-out; }
 .vb__line:last-of-type { color: var(--cream); font-size: 0.84rem; font-weight: 600; }
 .vb__line--boom, .vb__line--bust { color: #ffb4a6 !important; }
@@ -117,6 +143,9 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 .vb__pending-text { display: flex; flex-direction: column; gap: 1px; }
 .vb__pending-text b { font-size: 0.84rem; }
 .vb__pending-sub { font-size: 0.72rem; color: var(--muted); }
+/* What the waiting action does. Two lines at most; dropped when the table is too short to hold it and the buttons. */
+.vb__pending-why { font-size: 0.72rem; line-height: 1.25; color: rgba(246, 241, 231, 0.86); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+@container vbtable (max-height: 130px) { .vb__pending-why { display: none; } }
 .vb__pending-cards { display: flex; gap: 4px; overflow: hidden; flex-wrap: wrap; max-height: 22px; }
 .vb__pending-btns { display: flex; gap: 6px; }
 .vb__pending-btns .vb__btn { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 0.8rem; gap: 3px; }
@@ -218,6 +247,9 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 /* The "?": small to the eye, with a finger-sized area around it. */
 .vb__q { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 1.5em; height: 1.5em; margin-left: 0.15em; vertical-align: middle; border-radius: 50%; border: 1.5px solid var(--gold); color: var(--gold-2); background: rgba(232, 182, 74, 0.14); font-weight: 800; font-size: 0.9em; line-height: 1; text-decoration: none; }
 .vb__q::after { content: ''; position: absolute; inset: -11px; }
+/* In a game the "?" and the "business behind" links are buttons that open the table's Key. */
+button.vb__q { padding: 0; font-family: inherit; cursor: pointer; }
+button.vb__learn { width: 100%; border: 0; font: inherit; font-weight: 700; cursor: pointer; }
 .vb__q:hover, .vb__q:focus-visible { background: var(--gold); color: #1a1200; }
 .vb__detail-card { --card-w: min(calc(var(--u) * 4.4), 150px); flex: none; }
 .vb__detail-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
@@ -252,7 +284,7 @@ button.vb__card { cursor: pointer; touch-action: pan-x; user-select: none; -webk
 @keyframes vb-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vb-rise { from { transform: translateY(24px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .vb__card, .vb__card--new, .vb__pile--live .vb__pile-card, .vb__pile-card--deck, .vb__pile-card--top, .vb__line, .vb__note, .vb__pending, .vb__boom, .vb__boom-burst, .vb__boom-card, .vb__veil, .vb__sheet, .vb__recap { animation: none; transition: none; }
+  .vb__card, .vb__card--new, .vb__pile--live .vb__pile-card, .vb__pile-card--deck, .vb__pile-card--top, .vb__line, .vb__now, .vb__note, .vb__pending, .vb__boom, .vb__boom-burst, .vb__boom-card, .vb__veil, .vb__sheet, .vb__recap { animation: none; transition: none; }
 }
 @media (min-width: 700px) {
   .vb { font-size: 0.9rem; gap: 8px; }

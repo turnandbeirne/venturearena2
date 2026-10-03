@@ -190,3 +190,53 @@ export function actingSeats(G) {
   if (G.turnP === null || G.turnP === undefined) return [];
   return [Number(G.turnP)];
 }
+
+// ---- dice and other random draws ---------------------------------------------
+// A game that rolls dice (or draws anything else at random) records each
+// outcome here, and the table's "Rolls" tab draws the histogram from it. Only
+// counts are kept, so the record never grows with the length of the game.
+// Guarded where it is written, like the log: a match created before a game
+// started recording keeps working.
+
+/**
+ * Record one random outcome. `die` names what was rolled ("d6", "2d6",
+ * "weather"); `value` is what came up (a number, or a short label).
+ */
+export function recordRoll(G, die, value) {
+  if (!G.rolls || typeof G.rolls !== 'object') G.rolls = {};
+  const d = String(die);
+  if (!G.rolls[d] || typeof G.rolls[d] !== 'object') G.rolls[d] = {};
+  const v = String(value);
+  G.rolls[d][v] = (G.rolls[d][v] || 0) + 1;
+}
+
+/** What every outcome of one fair die roll is expected to come up, in a share of 1. */
+const DICE_ODDS = {
+  d6: Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [n, 1 / 6])),
+  '2d6': Object.fromEntries([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => [n, (6 - Math.abs(7 - n)) / 36])),
+};
+
+/**
+ * The record as chart data: one chart per die.
+ *   [{ id, title, unit, total, bars: [{ label, value, expected? }] }]
+ * `faces` puts the bars in order and shows the faces that have not come up
+ * yet; `expected` (a share of 1 per face) lets the chart say what a fair die
+ * would have given. Plain dice ("d6", "2d6") get both for free.
+ */
+export function rollCharts(G, defs = {}) {
+  const rolls = G && G.rolls && typeof G.rolls === 'object' ? G.rolls : {};
+  const out = [];
+  for (const die of Object.keys(rolls)) {
+    const seen = rolls[die] || {};
+    const def = defs[die] || {};
+    const odds = def.expected || DICE_ODDS[die] || null;
+    const faces = (def.faces || (odds ? Object.keys(odds) : Object.keys(seen))).map(String);
+    for (const k of Object.keys(seen)) if (!faces.includes(k)) faces.push(k);
+    const total = Object.values(seen).reduce((a, b) => a + b, 0);
+    out.push({
+      id: die, title: def.title || `Rolls of the ${die}`, unit: def.unit || 'rolls', total,
+      bars: faces.map((f) => ({ label: def.labels && def.labels[f] ? def.labels[f] : f, value: seen[f] || 0, ...(odds && odds[f] !== undefined ? { expected: odds[f] * total } : {}) })),
+    });
+  }
+  return out;
+}

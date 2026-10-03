@@ -33,7 +33,7 @@ describe('game history', () => {
     expect(mine.rows[1].others).toEqual([{ name: 'Bob', avatar: A.user(b.id).avatar, bot: false, placement: 2 }]);
     expect(mine.rows[0]).toMatchObject({ placement: 2, won: false, chatCount: 0 });
     expect(mine.rows[0].delta).toBeLessThan(0);
-    expect(mine.games).toEqual([{ gameId: GAME, gameName: 'Four in a Row', icon: expect.any(String), played: 2, won: 1 }]);
+    expect(mine.games).toEqual([{ gameId: GAME, gameName: 'Four in a Row', icon: expect.any(String), played: 2, won: 1, ms: expect.any(Number) }]);
     // Someone who has not played has an empty history, not an error.
     expect(await A.call('myGames', await guest(A, 'New'), {})).toMatchObject({ total: 0, rows: [], more: false });
   });

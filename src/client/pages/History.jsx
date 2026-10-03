@@ -7,6 +7,7 @@ import { rpc } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { Avatar, Loading } from '../components/ui.jsx';
 import { ordinal, timeAgo } from '../../shared/profile.js';
+import { spanText } from '../../shared/time.js';
 
 const day = (ts) => new Date(ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const clock = (ts) => new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -36,6 +37,7 @@ function GameList() {
         <div className="eyebrow">Your record</div>
         <h1>Game history</h1>
         <p className="muted">{data.total === 0 ? 'Every game you finish is kept here, with the table chat.' : `${data.total} game${data.total === 1 ? '' : 's'} finished, ${data.wins} won. Open one to see how it went and what was said.`}</p>
+        {data.ms > 0 && <p className="small" data-time-total><b>{spanText(data.ms)}</b> <span className="muted">at the table in all{data.games.length > 1 ? ': ' + data.games.filter((g) => g.ms > 0).map((g) => `${g.gameName} ${spanText(g.ms)}`).join(', ') : ''}.</span></p>}
       </div>
       {user.isGuest && data.total > 0 && <div className="notice">This history belongs to your guest session on this device. <Link to="/signin?mode=create">Create a free account</Link> to keep it.</div>}
       {data.games.length > 1 && (
@@ -54,7 +56,7 @@ function GameList() {
               <span className="grow">
                 <span className="truncate" style={{ display: 'block', fontWeight: 700 }}><span aria-hidden="true">{h.icon}</span> {h.gameName}</span>
                 <span className="tiny muted truncate" style={{ display: 'block' }}>{h.others.length ? `with ${h.others.map((o) => o.name).join(', ')}` : 'Solo'}</span>
-                <span className="tiny muted" style={{ display: 'block' }}>{day(h.at)} {'·'} {timeAgo(h.at)}{h.chatCount > 0 ? ` · ${h.chatCount} message${h.chatCount === 1 ? '' : 's'}` : ''}{h.takeover ? ' · finished by a bot' : ''}</span>
+                <span className="tiny muted" style={{ display: 'block' }}>{day(h.at)} {'·'} {timeAgo(h.at)}{h.ms >= 60000 ? ` · ${spanText(h.ms)}` : ''}{h.chatCount > 0 ? ` · ${h.chatCount} message${h.chatCount === 1 ? '' : 's'}` : ''}{h.takeover ? ' · finished by a bot' : ''}</span>
               </span>
               <span className={h.delta >= 0 ? 'good' : 'bad'} style={{ fontWeight: 700, flex: 'none' }} aria-label={`Rating ${h.delta >= 0 ? 'up' : 'down'} ${Math.abs(h.delta)}`}>{h.delta >= 0 ? '+' : ''}{h.delta}</span>
               <span className="muted" aria-hidden="true" style={{ flex: 'none' }}>{'›'}</span>
@@ -100,7 +102,7 @@ function GameRecord({ id }) {
             </div>
           ))}
         </div>
-        {t.hasDebrief && <div><Link className="btn sm" to={`/debrief/${t.id}`}>Open the debrief</Link></div>}
+        <div className="row-wrap">{t.hasDebrief && <Link className="btn sm" to={`/debrief/${t.id}`}>Open the debrief</Link>}{rec.mine && !user.isGuest && <Link className="btn sm" to={`/guides/coach?game=${t.id}`}>Talk it through with the Coach</Link>}</div>
       </section>
 
       <section className="card stack" aria-labelledby="hist-chat">

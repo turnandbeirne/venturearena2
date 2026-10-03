@@ -32,13 +32,18 @@ export function createContext({ store, config = {}, now = () => Date.now(), emit
       sessions: store.col('sessions'),
       tables: store.col('tables'),
       messages: store.col('messages'),
-      threadReads: store.col('thread_reads'),   // `${reader}:${other}` -> when the reader last read that conversation
+      threadReads: store.col('thread_reads'),
+      guideThreads: store.col('guide_threads'), // `${member}:${guide}` -> the conversation with one AI guide
+      guideUsage: store.col('guide_usage'),     // `${member}:${day}` and `site:${day}` -> messages sent that day
+      steps: store.col('steps'),                // a member's own next steps   // `${reader}:${other}` -> when the reader last read that conversation
       results: store.col('results'),
+      time: store.col('time'),                   // `${member}:${kind}:${ref}` -> time put into work that is not a game (arena/time.js)
       ratings: store.col('ratings'),
       connections: store.col('connections'),
       introductions: store.col('introductions'),
       challenges: store.col('challenges'),
       invites: store.col('invites'),
+      tableInvites: store.col('table_invites'), // `${table}:${member}` -> an invitation to a table, sent inside the arena
       feedback: store.col('feedback'),
       peerFeedback: store.col('peer_feedback'),
       debriefs: store.col('debriefs'),
